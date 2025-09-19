@@ -876,17 +876,31 @@
   </script>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useCallback } = React;
 
     function App() {
-      const [users, setUsers] = useState(loadUsers);
+      const [users, setUsersState] = useState(loadUsers);
       const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem(CURRENT_USER_KEY));
       const [toast, setToast] = useState(null);
       const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
 
-      useEffect(() => {
-        saveUsers(users.map(normalizeUser));
-      }, [users]);
+      const setUsers = useCallback((updater) => {
+        setUsersState((prev) => {
+          const nextValue = typeof updater === 'function' ? updater(prev) : updater;
+          if (nextValue === prev) {
+            return prev;
+          }
+
+          const nextArray = Array.isArray(nextValue) ? nextValue : prev;
+          if (nextArray === prev) {
+            return prev;
+          }
+
+          const normalizedForStorage = nextArray.map(normalizeUser);
+          saveUsers(normalizedForStorage);
+          return nextArray;
+        });
+      }, []);
 
       useEffect(() => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -900,6 +914,23 @@
           localStorage.removeItem(CURRENT_USER_KEY);
         }
       }, [currentUserId]);
+
+      useEffect(() => {
+        function handleStorage(event) {
+          if (event.key === DB_KEY) {
+            setUsersState(loadUsers());
+          }
+          if (event.key === CURRENT_USER_KEY) {
+            setCurrentUserId(event.newValue || null);
+          }
+          if (event.key === THEME_KEY) {
+            setTheme(event.newValue === 'dark' ? 'dark' : 'light');
+          }
+        }
+
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+      }, [setUsersState, setCurrentUserId, setTheme]);
 
       const currentUser = useMemo(
         () => users.find((user) => user.id === currentUserId) || null,
