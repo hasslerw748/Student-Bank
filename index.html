@@ -15,9 +15,11 @@
               display: ['\"Inter\"', 'system-ui', 'sans-serif'],
             },
             colors: {
-              navy: '#0b1d3a',
-              midnight: '#061024',
-              gold: '#d4af37',
+              charcoal: '#0f172a',
+              marine: '#17233b',
+              aqua: '#2dd4bf',
+              pearl: '#f5f7fb',
+              ink: '#111827',
             },
           },
         },
@@ -29,7 +31,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="h-full bg-navy text-white antialiased dark:bg-midnight">
+<body class="h-full bg-charcoal text-pearl antialiased dark:bg-charcoal">
   <div id="root" class="min-h-screen"></div>
 
   <script type="text/babel">
@@ -158,7 +160,7 @@
 
       if (!message) return null;
       return (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-gold px-6 py-2 text-sm font-medium text-navy shadow-lg ring-1 ring-gold/40">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-aqua px-6 py-2 text-sm font-medium text-ink shadow-lg ring-1 ring-aqua/40">
           {message}
         </div>
       );
@@ -166,29 +168,29 @@
 
     function Header({ onLogout, onToggleTheme, theme, isAdmin, userName }) {
       return (
-        <header className="flex flex-col gap-4 border-b border-gold/30 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-aqua/30 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Student Bank</h1>
-            <p className="text-sm text-white/70">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-pearl">Student Bank</h1>
+            <p className="text-sm text-pearl/70">
               A focused space for students to practice budgeting with real-world banking habits.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              className="rounded-full border border-gold/30 px-4 py-1.5 text-sm text-white/80 transition hover:border-gold hover:text-gold"
+              className="rounded-full border border-aqua/30 px-4 py-1.5 text-sm text-pearl/80 transition hover:border-aqua hover:text-aqua"
               onClick={onToggleTheme}
             >
               Toggle {theme === 'dark' ? 'Light' : 'Dark'} Mode
             </button>
             {userName && (
-              <span className="text-sm text-white/70">
-                Signed in as <strong className="text-white">{userName}</strong>
-                {isAdmin && <span className="text-gold"> (Admin)</span>}
+              <span className="text-sm text-pearl/70">
+                Signed in as <strong className="text-pearl">{userName}</strong>
+                {isAdmin && <span className="text-aqua"> (Admin)</span>}
               </span>
             )}
             {onLogout && (
               <button
-                className="rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
+                className="rounded-full bg-aqua px-4 py-1.5 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80"
                 onClick={onLogout}
               >
                 Log out
@@ -212,56 +214,56 @@
 
       return (
         <div className="mx-auto max-w-xl">
-          <div className="relative overflow-hidden rounded-3xl border border-gold/40 bg-white p-8 text-navy shadow-2xl">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-transparent via-gold to-transparent opacity-70" aria-hidden="true"></div>
-            <h2 className="mb-2 text-2xl font-semibold text-navy">Welcome!</h2>
-            <p className="mb-6 text-sm text-navy/70">
+          <div className="relative overflow-hidden rounded-3xl border border-aqua/40 bg-white p-8 text-ink shadow-2xl">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-transparent via-aqua to-transparent opacity-70" aria-hidden="true"></div>
+            <h2 className="mb-2 text-2xl font-semibold text-ink">Welcome!</h2>
+            <p className="mb-6 text-sm text-ink/70">
               Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
               account.
             </p>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-navy" htmlFor="login-email">Email</label>
+                <label className="text-sm font-medium text-ink" htmlFor="login-email">Email</label>
                 <input
                   id="login-email"
                   type="email"
                   required
-                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@school.edu"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-navy" htmlFor="login-name">Name</label>
+                <label className="text-sm font-medium text-ink" htmlFor="login-name">Name</label>
                 <input
                   id="login-name"
                   type="text"
-                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Only needed when creating an account"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-navy" htmlFor="login-password">Password</label>
+                <label className="text-sm font-medium text-ink" htmlFor="login-password">Password</label>
                 <input
                   id="login-password"
                   type="password"
                   required
                   minLength={4}
-                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Choose something easy to remember"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-navy" htmlFor="login-class">Class number</label>
+                <label className="text-sm font-medium text-ink" htmlFor="login-class">Class number</label>
                 <input
                   id="login-class"
                   type="text"
-                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={classNumber}
                   onChange={(event) => setClassNumber(event.target.value)}
                   placeholder="Optional — enter the class you belong to"
@@ -270,14 +272,14 @@
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="text-sm text-navy/70 transition hover:text-gold"
+                  className="text-sm text-ink/70 transition hover:text-aqua"
                   onClick={onToggleTheme}
                 >
                   Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2 text-sm font-semibold text-navy shadow-lg transition hover:bg-[#c99c2a]"
+                  className="inline-flex items-center justify-center rounded-full bg-aqua px-5 py-2 text-sm font-semibold text-ink shadow-lg transition hover:bg-aqua/80"
                 >
                   Sign in / Create account
                 </button>
@@ -291,23 +293,23 @@
     function RecurringList({ title, emptyHint, items, onRemove, disabled = false }) {
       return (
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-white">{title}</h4>
+          <h4 className="mb-2 text-sm font-semibold text-pearl">{title}</h4>
           {items.length === 0 ? (
-            <p className="text-sm text-white/60">{emptyHint}</p>
+            <p className="text-sm text-pearl/60">{emptyHint}</p>
           ) : (
             <ul className="space-y-2">
               {items.map((item) => (
                 <li
                   key={item.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-gold/30 bg-midnight/70 px-3 py-2"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-aqua/30 bg-charcoal/70 px-3 py-2"
                 >
                   <div>
-                    <div className="text-sm font-medium text-white">{item.label}</div>
-                    <div className="text-xs text-white/60">{fmtUSD(item.amount)} every week</div>
+                    <div className="text-sm font-medium text-pearl">{item.label}</div>
+                    <div className="text-xs text-pearl/60">{fmtUSD(item.amount)} every week</div>
                   </div>
                   {onRemove && !disabled && (
                     <button
-                      className="text-xs text-gold hover:underline"
+                      className="text-xs text-aqua hover:underline"
                       onClick={() => onRemove(item.id)}
                     >
                       Remove
@@ -324,7 +326,7 @@
     function TransactionHistory({ transactions }) {
       if (!transactions.length) {
         return (
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-pearl/60">
             No activity yet. Every deposit, withdrawal, and subscription payment will appear here.
           </p>
         );
@@ -333,26 +335,26 @@
       const sorted = [...transactions].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
       return (
-        <div className="overflow-hidden rounded-xl border border-gold/30 bg-midnight/70">
-          <table className="min-w-full divide-y divide-white/10 text-sm text-left text-white/80">
-            <thead className="bg-navy text-white">
+        <div className="overflow-hidden rounded-xl border border-aqua/30 bg-charcoal/70">
+          <table className="min-w-full divide-y divide-pearl/10 text-sm text-left text-pearl/80">
+            <thead className="bg-marine text-pearl">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">When</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">Details</th>
-                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-white/70">Amount</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-pearl/70">When</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-pearl/70">Details</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-pearl/70">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-pearl/10">
               {sorted.map((tx) => (
                 <tr key={tx.id}>
-                  <td className="whitespace-nowrap px-3 py-3 text-white/70">
+                  <td className="whitespace-nowrap px-3 py-3 text-pearl/70">
                     {new Date(tx.ts || now()).toLocaleString()}
                   </td>
-                  <td className="px-3 py-3 text-white">
-                    <div className="font-medium capitalize text-white">{tx.type.replace('-', ' ')}</div>
-                    <div className="text-xs text-white/60">{tx.memo || '—'}</div>
+                  <td className="px-3 py-3 text-pearl">
+                    <div className="font-medium capitalize text-pearl">{tx.type.replace('-', ' ')}</div>
+                    <div className="text-xs text-pearl/60">{tx.memo || '—'}</div>
                   </td>
-                  <td className={`px-3 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-gold' : 'text-white/60'}`}>
+                  <td className={`px-3 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-aqua' : 'text-pearl/60'}`}>
                     {tx.amount >= 0 ? '+' : ''}
                     {fmtUSD(tx.amount)}
                   </td>
@@ -547,22 +549,22 @@
         <div className="pt-10 sm:pt-12">
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="space-y-6 lg:col-span-2">
-              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
                 <div className="space-y-2">
-                  <h2 className="text-xl font-semibold text-white">Hi {user.name || 'there'}!</h2>
-                  <p className="text-sm text-white/70">
-                    Current balance: <strong className="text-gold">{fmtUSD(balance)}</strong>
+                  <h2 className="text-xl font-semibold text-pearl">Hi {user.name || 'there'}!</h2>
+                  <p className="text-sm text-pearl/70">
+                    Current balance: <strong className="text-aqua">{fmtUSD(balance)}</strong>
                   </p>
-                  <p className="text-xs text-white/60">Every amount you add or remove is saved privately to this device.</p>
+                  <p className="text-xs text-pearl/60">Every amount you add or remove is saved privately to this device.</p>
                   {isFrozen && (
-                    <p className="mt-3 rounded-xl border border-gold/60 bg-gold/10 px-4 py-3 text-xs text-gold">
+                    <p className="mt-3 rounded-xl border border-aqua/60 bg-aqua/10 px-4 py-3 text-xs text-aqua">
                       Your subscription is paused, so this account is read-only until the admin reactivates it.
                     </p>
                   )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white" htmlFor="amount-input">Amount</label>
+                    <label className="text-sm font-medium text-pearl" htmlFor="amount-input">Amount</label>
                     <input
                       id="amount-input"
                       type="number"
@@ -570,19 +572,19 @@
                       step="0.01"
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
-                      className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-white" htmlFor="memo-input">Memo</label>
+                    <label className="text-sm font-medium text-pearl" htmlFor="memo-input">Memo</label>
                     <input
                       id="memo-input"
                       type="text"
                       value={memo}
                       onChange={(event) => setMemo(event.target.value)}
-                      className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="What is this for?"
                     />
@@ -590,14 +592,14 @@
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleDeposit}
                     disabled={isFrozen}
                   >
                     Add money
                   </button>
                   <button
-                    className="rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-aqua/30 px-4 py-2 text-sm font-semibold text-pearl transition hover:border-aqua disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleWithdraw}
                     disabled={isFrozen}
                   >
@@ -606,10 +608,10 @@
                 </div>
               </div>
 
-              <div className="space-y-6 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+              <div className="space-y-6 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white">Weekly plan</h3>
-                  <p className="text-sm text-white/70">
+                  <h3 className="text-lg font-semibold text-pearl">Weekly plan</h3>
+                  <p className="text-sm text-pearl/70">
                     Track regular income like allowances and expenses like snacks or clubs. Run the weekly update to copy them into
                     your history automatically.
                   </p>
@@ -617,13 +619,13 @@
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-white" htmlFor="income-label">Add weekly income</label>
+                      <label className="text-sm font-medium text-pearl" htmlFor="income-label">Add weekly income</label>
                       <input
                         id="income-label"
                         type="text"
                         value={incomeLabel}
                         onChange={(event) => setIncomeLabel(event.target.value)}
-                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Allowance"
                       />
@@ -633,13 +635,13 @@
                         step="0.01"
                         value={incomeAmount}
                         onChange={(event) => setIncomeAmount(event.target.value)}
-                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
                     </div>
                     <button
-                      className="w-full rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                       onClick={addWeeklyIncome}
                       disabled={isFrozen}
                     >
@@ -655,13 +657,13 @@
                   </div>
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-white" htmlFor="expense-label">Add weekly expense</label>
+                      <label className="text-sm font-medium text-pearl" htmlFor="expense-label">Add weekly expense</label>
                       <input
                         id="expense-label"
                         type="text"
                         value={expenseLabel}
                         onChange={(event) => setExpenseLabel(event.target.value)}
-                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Snacks"
                       />
@@ -671,13 +673,13 @@
                         step="0.01"
                         value={expenseAmount}
                         onChange={(event) => setExpenseAmount(event.target.value)}
-                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
                     </div>
                     <button
-                      className="w-full rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-full border border-aqua/30 px-4 py-2 text-sm font-semibold text-pearl transition hover:border-aqua disabled:cursor-not-allowed disabled:opacity-60"
                       onClick={addWeeklyExpense}
                       disabled={isFrozen}
                     >
@@ -692,15 +694,15 @@
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gold/30 bg-midnight/70 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aqua/30 bg-charcoal/70 px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Weekly summary</p>
-                    <p className="text-xs text-white/60">
+                    <p className="text-sm font-semibold text-pearl">Weekly summary</p>
+                    <p className="text-xs text-pearl/60">
                       Income: {fmtUSD(totalRecurring(user.weeklyIncome))} | Expenses: {fmtUSD(totalRecurring(user.weeklyExpenses))}
                     </p>
                   </div>
                   <button
-                    className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={runWeeklyPlan}
                     disabled={isFrozen}
                   >
@@ -711,51 +713,51 @@
             </section>
 
             <section className="space-y-4">
-              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white">Subscription</h3>
-                  <p className="text-sm text-white/70">
+                  <h3 className="text-lg font-semibold text-pearl">Subscription</h3>
+                  <p className="text-sm text-pearl/70">
                     Keep your subscription active to stay in control. You can only pay once every 7 days.
                   </p>
                   {!user.subscriptionActive && (
-                    <p className="rounded-xl border border-gold/60 bg-gold/10 px-4 py-3 text-xs text-gold">
+                    <p className="rounded-xl border border-aqua/60 bg-aqua/10 px-4 py-3 text-xs text-aqua">
                       Your subscription is paused. Reach out to the admin to reactivate it.
                     </p>
                   )}
                 </div>
-                <div className="space-y-2 text-sm text-white/70">
+                <div className="space-y-2 text-sm text-pearl/70">
                   <div className="flex justify-between">
                     <span>Status</span>
-                    <span className="font-semibold text-white">{user.subscriptionActive ? 'Active' : 'Paused'}</span>
+                    <span className="font-semibold text-pearl">{user.subscriptionActive ? 'Active' : 'Paused'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Weekly cost</span>
-                    <span className="font-semibold text-gold">{fmtUSD(user.subscriptionAmount)}</span>
+                    <span className="font-semibold text-aqua">{fmtUSD(user.subscriptionAmount)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Next payment</span>
-                    <span className="font-semibold text-white">{nextEligible ? new Date(nextEligible).toLocaleDateString() : 'Anytime'}</span>
+                    <span className="font-semibold text-pearl">{nextEligible ? new Date(nextEligible).toLocaleDateString() : 'Anytime'}</span>
                   </div>
                 </div>
                 <button
-                  className="w-full rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={paySubscriptionNow}
                   disabled={isFrozen || cannotPayNow}
                 >
                   Pay subscription now
                 </button>
                 {cannotPayNow && (
-                  <p className="text-xs text-white/60">You can pay again once seven full days have passed.</p>
+                  <p className="text-xs text-pearl/60">You can pay again once seven full days have passed.</p>
                 )}
               </div>
 
-              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Notes</h3>
-                  <span className="text-xs text-white/60">Private to you</span>
+                  <h3 className="text-lg font-semibold text-pearl">Notes</h3>
+                  <span className="text-xs text-pearl/60">Private to you</span>
                 </div>
                 <textarea
-                  className="w-full rounded-xl border border-gold/40 bg-navy px-3 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-xl border border-aqua/40 bg-marine px-3 py-2 text-sm text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   rows="5"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
@@ -767,7 +769,7 @@
           </div>
 
           <div className="mt-10 space-y-3">
-            <h3 className="text-lg font-semibold text-white">Recent activity</h3>
+            <h3 className="text-lg font-semibold text-pearl">Recent activity</h3>
             <TransactionHistory transactions={user.transactions} />
           </div>
         </div>
@@ -790,32 +792,32 @@
       const lastPayment = user.lastSubscriptionPayment ? new Date(user.lastSubscriptionPayment).toLocaleString() : 'Never';
 
       return (
-        <li className="space-y-5 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+        <li className="space-y-5 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold text-white">{user.name || user.email}</h3>
+              <h3 className="text-lg font-semibold text-pearl">{user.name || user.email}</h3>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
                   user.subscriptionActive
-                    ? 'border border-gold/80 bg-gold text-navy'
-                    : 'border border-gold/30 text-white/70'
+                    ? 'border border-aqua/80 bg-aqua text-ink'
+                    : 'border border-aqua/30 text-pearl/70'
                 }`}
               >
                 {user.subscriptionActive ? 'Subscription active' : 'Subscription paused'}
               </span>
             </div>
-            <p className="text-sm text-white/70">{user.email}</p>
-            <p className="text-xs text-white/60">{user.classNumber ? `Classroom: ${user.classNumber}` : 'No class assigned'}</p>
-            <p className="text-sm text-white/70">
-              Balance: <strong className="text-white">{fmtUSD(balance)}</strong>
+            <p className="text-sm text-pearl/70">{user.email}</p>
+            <p className="text-xs text-pearl/60">{user.classNumber ? `Classroom: ${user.classNumber}` : 'No class assigned'}</p>
+            <p className="text-sm text-pearl/70">
+              Balance: <strong className="text-pearl">{fmtUSD(balance)}</strong>
             </p>
-            <p className="text-xs text-white/60">Last subscription payment: {lastPayment}</p>
-            <p className="text-xs text-white/60">Projected weekly change: {fmtUSD(projectedNet)}</p>
+            <p className="text-xs text-pearl/60">Last subscription payment: {lastPayment}</p>
+            <p className="text-xs text-pearl/60">Projected weekly change: {fmtUSD(projectedNet)}</p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2 text-sm text-white/70">
-              <h4 className="font-semibold text-white">Weekly income</h4>
+            <div className="space-y-2 text-sm text-pearl/70">
+              <h4 className="font-semibold text-pearl">Weekly income</h4>
               <ul className="space-y-1">
                 {(user.weeklyIncome || []).map((item) => (
                   <li key={item.id} className="flex justify-between">
@@ -823,11 +825,11 @@
                     <span>{fmtUSD(item.amount)}</span>
                   </li>
                 ))}
-                {(user.weeklyIncome || []).length === 0 && <li className="text-white/50">None</li>}
+                {(user.weeklyIncome || []).length === 0 && <li className="text-pearl/50">None</li>}
               </ul>
             </div>
-            <div className="space-y-2 text-sm text-white/70">
-              <h4 className="font-semibold text-white">Weekly expenses</h4>
+            <div className="space-y-2 text-sm text-pearl/70">
+              <h4 className="font-semibold text-pearl">Weekly expenses</h4>
               <ul className="space-y-1">
                 {(user.weeklyExpenses || []).map((item) => (
                   <li key={item.id} className="flex justify-between">
@@ -835,14 +837,14 @@
                     <span>{fmtUSD(item.amount)}</span>
                   </li>
                 ))}
-                {(user.weeklyExpenses || []).length === 0 && <li className="text-white/50">None</li>}
+                {(user.weeklyExpenses || []).length === 0 && <li className="text-pearl/50">None</li>}
               </ul>
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white">Subscription amount</label>
+              <label className="text-sm font-medium text-pearl">Subscription amount</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -850,10 +852,10 @@
                   step="0.01"
                   value={subscription}
                   onChange={(event) => setSubscription(event.target.value)}
-                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 />
                 <button
-                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
+                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
                   onClick={() => onChangeSubscriptionAmount(user.id, subscription)}
                 >
                   Save
@@ -861,22 +863,22 @@
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-white">Quick actions</label>
+              <label className="text-sm font-medium text-pearl">Quick actions</label>
               <div className="flex flex-wrap gap-2">
                 <button
-                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
+                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
                   onClick={() => onToggleSubscription(user.id, true)}
                 >
                   Activate
                 </button>
                 <button
-                  className="rounded-full border border-gold/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-gold"
+                  className="rounded-full border border-aqua/30 px-4 py-2 text-xs font-semibold text-pearl transition hover:border-aqua"
                   onClick={() => onToggleSubscription(user.id, false)}
                 >
                   Pause
                 </button>
                 <button
-                  className="rounded-full border border-gold px-4 py-2 text-xs font-semibold text-gold transition hover:bg-gold/10"
+                  className="rounded-full border border-aqua px-4 py-2 text-xs font-semibold text-aqua transition hover:bg-aqua/10"
                   onClick={() => onChargeSubscription(user.id)}
                 >
                   Charge now
@@ -886,25 +888,25 @@
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-white">Post an adjustment</label>
+            <label className="text-sm font-medium text-pearl">Post an adjustment</label>
             <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto]">
               <input
                 type="number"
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 placeholder="Amount"
               />
               <input
                 type="text"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                className="rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 placeholder="Reason"
               />
               <button
-                className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
+                className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
                 onClick={() => {
                   const value = safeAmount(amount);
                   if (value === 0) return;
@@ -919,9 +921,9 @@
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-white/60">Created {new Date(user.createdAt || now()).toLocaleDateString()}</span>
+            <span className="text-xs text-pearl/60">Created {new Date(user.createdAt || now()).toLocaleDateString()}</span>
             <button
-              className="text-xs text-white/60 transition hover:text-gold"
+              className="text-xs text-pearl/60 transition hover:text-aqua"
               onClick={() => {
                 if (window.confirm('Delete this account? All locally stored data will be removed.')) {
                   onRemoveUser(user.id);
@@ -972,11 +974,11 @@
       }, [users, query, selectedClass]);
 
       return (
-        <section className="space-y-6 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
+        <section className="space-y-6 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-white">Admin control center</h2>
-              <p className="text-sm text-white/70">
+              <h2 className="text-xl font-semibold text-pearl">Admin control center</h2>
+              <p className="text-sm text-pearl/70">
                 Review every student account, update subscription status, and help with balances.
               </p>
             </div>
@@ -985,7 +987,7 @@
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, email, or class"
-              className="w-full rounded-full border border-gold/40 bg-navy px-4 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:w-64"
+              className="w-full rounded-full border border-aqua/40 bg-marine px-4 py-2 text-sm text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua sm:w-64"
             />
           </div>
 
@@ -996,8 +998,8 @@
                 onClick={() => setSelectedClass('')}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                   selectedClass === ''
-                    ? 'border-gold bg-gold/10 text-gold'
-                    : 'border-gold/30 text-white/70 hover:border-gold'
+                    ? 'border-aqua bg-aqua/10 text-aqua'
+                    : 'border-aqua/30 text-pearl/70 hover:border-aqua'
                 }`}
               >
                 All classes
@@ -1009,12 +1011,12 @@
                   onClick={() => setSelectedClass(item.value)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                     selectedClass.toLowerCase() === item.value.toLowerCase()
-                      ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-gold/30 text-white/70 hover:border-gold'
+                      ? 'border-aqua bg-aqua/10 text-aqua'
+                      : 'border-aqua/30 text-pearl/70 hover:border-aqua'
                   }`}
                 >
                   Class {item.value}
-                  <span className="ml-2 rounded-full bg-navy px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                  <span className="ml-2 rounded-full bg-marine px-2 py-0.5 text-[10px] font-semibold text-pearl/80">
                     {item.count}
                   </span>
                 </button>
@@ -1034,7 +1036,7 @@
                 onRemoveUser={onRemoveUser}
               />
             ))}
-            {filtered.length === 0 && <li className="text-sm text-white/60">No matching accounts.</li>}
+            {filtered.length === 0 && <li className="text-sm text-pearl/60">No matching accounts.</li>}
           </ul>
         </section>
       );
@@ -1244,8 +1246,8 @@
 
       const pageClasses =
         theme === 'dark'
-          ? 'bg-gradient-to-b from-midnight via-midnight to-navy text-white'
-          : 'bg-gradient-to-b from-navy via-navy to-midnight text-white';
+          ? 'bg-gradient-to-b from-charcoal via-charcoal to-marine text-pearl'
+          : 'bg-gradient-to-b from-marine via-marine to-charcoal text-pearl';
 
       return (
         <div className={`min-h-screen ${pageClasses}`}>
