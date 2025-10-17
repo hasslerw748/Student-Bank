@@ -205,76 +205,84 @@
       }
 
       return (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 max-w-xl mx-auto">
-          <h2 className="text-xl font-semibold mb-1">Welcome!</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-            Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
-            account.
-          </p>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-1">
-              <label className="text-sm font-medium" htmlFor="login-email">Email</label>
-              <input
-                id="login-email"
-                type="email"
-                required
-                className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@school.edu"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium" htmlFor="login-name">Name</label>
-              <input
-                id="login-name"
-                type="text"
-                className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Only needed when creating an account"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium" htmlFor="login-password">Password</label>
-              <input
-                id="login-password"
-                type="password"
-                required
-                minLength={4}
-                className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Choose something easy to remember"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium" htmlFor="login-class">Class number</label>
-              <input
-                id="login-class"
-                type="text"
-                className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
-                value={classNumber}
-                onChange={(event) => setClassNumber(event.target.value)}
-                placeholder="Optional — enter the class you belong to"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                className="text-sm text-slate-600 dark:text-slate-300"
-                onClick={onToggleTheme}
-              >
-                Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
-              </button>
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded bg-indigo-600 px-4 py-2 text-white text-sm font-medium"
-              >
-                Sign in / Create account
-              </button>
-            </div>
-          </form>
+        <div className="mx-auto max-w-xl">
+          <div className="relative overflow-hidden rounded-2xl bg-white p-6 pt-16 shadow-sm dark:bg-slate-800 sm:pt-20">
+            <img
+              src="./assets/logo-lockup.svg"
+              alt="Student Banking logo"
+              className="pointer-events-none select-none absolute right-6 top-4 w-28 opacity-90 sm:w-36 dark:opacity-80"
+              aria-hidden="true"
+            />
+            <h2 className="text-xl font-semibold mb-1">Welcome!</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+              Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
+              account.
+            </p>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="login-email">Email</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@school.edu"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="login-name">Name</label>
+                <input
+                  id="login-name"
+                  type="text"
+                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Only needed when creating an account"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  required
+                  minLength={4}
+                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Choose something easy to remember"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="login-class">Class number</label>
+                <input
+                  id="login-class"
+                  type="text"
+                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  value={classNumber}
+                  onChange={(event) => setClassNumber(event.target.value)}
+                  placeholder="Optional — enter the class you belong to"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  className="text-sm text-slate-600 dark:text-slate-300"
+                  onClick={onToggleTheme}
+                >
+                  Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded bg-indigo-600 px-4 py-2 text-white text-sm font-medium"
+                >
+                  Sign in / Create account
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       );
     }
@@ -527,213 +535,221 @@
       }
 
       return (
-        <div className="grid gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 space-y-6">
-            <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-              <div>
-                <h2 className="text-xl font-semibold">Hi {user.name || 'there'}!</h2>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Current balance: <strong>{fmtUSD(balance)}</strong>
-                </p>
-                <p className="text-xs text-slate-500">Every amount you add or remove is saved privately to this device.</p>
-                {isFrozen && (
-                  <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
-                    Your subscription is paused, so this account is read-only until the admin reactivates it.
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="amount-input">Amount</label>
-                  <input
-                    id="amount-input"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isFrozen}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="memo-input">Memo</label>
-                  <input
-                    id="memo-input"
-                    type="text"
-                    value={memo}
-                    onChange={(event) => setMemo(event.target.value)}
-                    className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isFrozen}
-                    placeholder="What is this for?"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="rounded bg-emerald-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleDeposit}
-                  disabled={isFrozen}
-                >
-                  Add money
-                </button>
-                <button
-                  className="rounded bg-rose-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleWithdraw}
-                  disabled={isFrozen}
-                >
-                  Spend money
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-6">
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Weekly plan</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Track regular income like allowances and expenses like snacks or clubs. Run the weekly update to copy them into
-                  your history automatically.
-                </p>
-              </div>
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="income-label">Add weekly income</label>
-                    <input
-                      id="income-label"
-                      type="text"
-                      value={incomeLabel}
-                      onChange={(event) => setIncomeLabel(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isFrozen}
-                      placeholder="Example: Allowance"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={incomeAmount}
-                      onChange={(event) => setIncomeAmount(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isFrozen}
-                      placeholder="Amount each week"
-                    />
-                    <button
-                      className="rounded bg-emerald-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={() => addRecurring('income')}
-                      disabled={isFrozen}
-                    >
-                      Save income
-                    </button>
-                  </div>
-                  <RecurringList
-                    title="Weekly income"
-                    emptyHint="No weekly income saved yet."
-                    items={user.weeklyIncome || []}
-                    onRemove={!isFrozen ? (id) => removeRecurring('income', id) : null}
-                    disabled={isFrozen}
-                  />
-                </div>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="expense-label">Add weekly expense</label>
-                    <input
-                      id="expense-label"
-                      type="text"
-                      value={expenseLabel}
-                      onChange={(event) => setExpenseLabel(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isFrozen}
-                      placeholder="Example: Lunch"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={expenseAmount}
-                      onChange={(event) => setExpenseAmount(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={isFrozen}
-                      placeholder="Amount each week"
-                    />
-                    <button
-                      className="rounded bg-indigo-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                      onClick={() => addRecurring('expense')}
-                      disabled={isFrozen}
-                    >
-                      Save expense
-                    </button>
-                  </div>
-                  <RecurringList
-                    title="Weekly expenses"
-                    emptyHint="No weekly expenses saved yet."
-                    items={user.weeklyExpenses || []}
-                    onRemove={!isFrozen ? (id) => removeRecurring('expense', id) : null}
-                    disabled={isFrozen}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-lg bg-slate-50 dark:bg-slate-900 px-4 py-3">
+        <div className="relative pt-16 sm:pt-20">
+          <img
+            src="./assets/logo-icon.svg"
+            alt="Student Bank icon"
+            className="pointer-events-none select-none absolute right-0 top-0 w-16 opacity-90 sm:w-20 md:w-24 dark:opacity-80"
+            aria-hidden="true"
+          />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <section className="lg:col-span-2 space-y-6">
+              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
                 <div>
+                  <h2 className="text-xl font-semibold">Hi {user.name || 'there'}!</h2>
                   <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Projected change each week: <strong>{fmtUSD(projectedNet)}</strong>
+                    Current balance: <strong>{fmtUSD(balance)}</strong>
                   </p>
-                  <p className="text-xs text-slate-500">
-                    Income {fmtUSD(totalIncome)} − Expenses {fmtUSD(totalExpenses)} − Subscription {fmtUSD(weeklySubscription)}
+                  <p className="text-xs text-slate-500">Every amount you add or remove is saved privately to this device.</p>
+                  {isFrozen && (
+                    <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                      Your subscription is paused, so this account is read-only until the admin reactivates it.
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="amount-input">Amount</label>
+                    <input
+                      id="amount-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isFrozen}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="memo-input">Memo</label>
+                    <input
+                      id="memo-input"
+                      type="text"
+                      value={memo}
+                      onChange={(event) => setMemo(event.target.value)}
+                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isFrozen}
+                      placeholder="What is this for?"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded bg-emerald-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleDeposit}
+                    disabled={isFrozen}
+                  >
+                    Add money
+                  </button>
+                  <button
+                    className="rounded bg-rose-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleWithdraw}
+                    disabled={isFrozen}
+                  >
+                    Spend money
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Weekly plan</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    Track regular income like allowances and expenses like snacks or clubs. Run the weekly update to copy them into
+                    your history automatically.
                   </p>
                 </div>
-                <button
-                  className="rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={applyWeeklyPlan}
-                  disabled={isFrozen}
-                >
-                  Run weekly update
-                </button>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" htmlFor="income-label">Add weekly income</label>
+                      <input
+                        id="income-label"
+                        type="text"
+                        value={incomeLabel}
+                        onChange={(event) => setIncomeLabel(event.target.value)}
+                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Example: Allowance"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={incomeAmount}
+                        onChange={(event) => setIncomeAmount(event.target.value)}
+                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Amount each week"
+                      />
+                      <button
+                        className="rounded bg-emerald-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => addRecurring('income')}
+                        disabled={isFrozen}
+                      >
+                        Save income
+                      </button>
+                    </div>
+                    <RecurringList
+                      title="Weekly income"
+                      emptyHint="No weekly income saved yet."
+                      items={user.weeklyIncome || []}
+                      onRemove={!isFrozen ? (id) => removeRecurring('income', id) : null}
+                      disabled={isFrozen}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" htmlFor="expense-label">Add weekly expense</label>
+                      <input
+                        id="expense-label"
+                        type="text"
+                        value={expenseLabel}
+                        onChange={(event) => setExpenseLabel(event.target.value)}
+                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Example: Lunch"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={expenseAmount}
+                        onChange={(event) => setExpenseAmount(event.target.value)}
+                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Amount each week"
+                      />
+                      <button
+                        className="rounded bg-indigo-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() => addRecurring('expense')}
+                        disabled={isFrozen}
+                      >
+                        Save expense
+                      </button>
+                    </div>
+                    <RecurringList
+                      title="Weekly expenses"
+                      emptyHint="No weekly expenses saved yet."
+                      items={user.weeklyExpenses || []}
+                      onRemove={!isFrozen ? (id) => removeRecurring('expense', id) : null}
+                      disabled={isFrozen}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-lg bg-slate-50 dark:bg-slate-900 px-4 py-3">
+                  <div>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                      Projected change each week: <strong>{fmtUSD(projectedNet)}</strong>
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Income {fmtUSD(totalIncome)} − Expenses {fmtUSD(totalExpenses)} − Subscription {fmtUSD(weeklySubscription)}
+                    </p>
+                  </div>
+                  <button
+                    className="rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={applyWeeklyPlan}
+                    disabled={isFrozen}
+                  >
+                    Run weekly update
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-              <div className="space-y-1">
-                <h3 className="text-lg font-semibold">Subscription</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Status: <strong>{user.subscriptionActive ? 'Active' : 'Paused'}</strong>
-                </p>
-                <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Weekly fee: <strong>{fmtUSD(user.subscriptionAmount || DEFAULT_SUBSCRIPTION_AMOUNT)}</strong>
-                </p>
-                <p className="text-xs text-slate-500">Last payment: {lastPayment}</p>
-                {user.subscriptionActive && !canPaySubscription && nextPaymentDate && (
-                  <p className="text-xs text-slate-500">Next payment available after {nextPaymentDate}</p>
+              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold">Subscription</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    Status: <strong>{user.subscriptionActive ? 'Active' : 'Paused'}</strong>
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    Weekly fee: <strong>{fmtUSD(user.subscriptionAmount || DEFAULT_SUBSCRIPTION_AMOUNT)}</strong>
+                  </p>
+                  <p className="text-xs text-slate-500">Last payment: {lastPayment}</p>
+                  {user.subscriptionActive && !canPaySubscription && nextPaymentDate && (
+                    <p className="text-xs text-slate-500">Next payment available after {nextPaymentDate}</p>
+                  )}
+                </div>
+                <button
+                  className="w-full rounded bg-amber-500 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={paySubscriptionNow}
+                  disabled={!canPaySubscription}
+                >
+                  Pay subscription now
+                </button>
+                {!user.subscriptionActive && (
+                  <p className="text-xs text-slate-500">
+                    Need your subscription back on? Ask the admin to activate it so weekly charges resume.
+                  </p>
+                )}
+                {user.subscriptionActive && !canPaySubscription && (
+                  <p className="text-xs text-slate-500">
+                    You can only make one subscription payment every 7 days to avoid duplicate charges.
+                  </p>
                 )}
               </div>
-              <button
-                className="w-full rounded bg-amber-500 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={paySubscriptionNow}
-                disabled={!canPaySubscription}
-              >
-                Pay subscription now
-              </button>
-              {!user.subscriptionActive && (
-                <p className="text-xs text-slate-500">
-                  Need your subscription back on? Ask the admin to activate it so weekly charges resume.
-                </p>
-              )}
-              {user.subscriptionActive && !canPaySubscription && (
-                <p className="text-xs text-slate-500">
-                  You can only make one subscription payment every 7 days to avoid duplicate charges.
-                </p>
-              )}
-            </div>
-          </section>
+            </section>
 
-          <section className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold">History</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300">Review every move you have made so nothing is a surprise.</p>
-            </div>
-            <TransactionHistory transactions={user.transactions || []} />
-          </section>
+            <section className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">History</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Review every move you have made so nothing is a surprise.</p>
+              </div>
+              <TransactionHistory transactions={user.transactions || []} />
+            </section>
+          </div>
         </div>
       );
     }
