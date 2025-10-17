@@ -14,12 +14,12 @@
               display: ['\"Inter\"', 'system-ui', 'sans-serif'],
             },
             colors: {
-              charcoal: '#efe9ff',
-              marine: '#f9f5ff',
-              aqua: '#7c3aed',
-              pearl: '#1f2937',
-              ink: '#0f172a',
-              lilac: '#ede9fe',
+              charcoal: '#f2ede7',
+              marine: '#e5ecf4',
+              aqua: '#2a6f97',
+              pearl: '#2f3e46',
+              ink: '#1b2a41',
+              lilac: '#d8c4a6',
             },
           },
         },
@@ -287,7 +287,7 @@
               {items.map((item) => (
                 <li
                   key={item.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-aqua/30 bg-charcoal/70 px-3 py-2"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-aqua/30 bg-marine/70 px-3 py-2"
                 >
                   <div>
                     <div className="text-sm font-medium text-pearl">{item.label}</div>
@@ -321,7 +321,7 @@
       const sorted = [...transactions].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
       return (
-        <div className="overflow-hidden rounded-xl border border-aqua/30 bg-charcoal/70">
+        <div className="overflow-hidden rounded-xl border border-aqua/30 bg-marine/70">
           <table className="min-w-full divide-y divide-pearl/10 text-sm text-left text-pearl/80">
             <thead className="bg-marine text-pearl">
               <tr>
@@ -535,7 +535,7 @@
         <div className="pt-10 sm:pt-12">
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="space-y-6 lg:col-span-2">
-              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-pearl">Hi {user.name || 'there'}!</h2>
                   <p className="text-sm text-pearl/70">
@@ -594,7 +594,7 @@
                 </div>
               </div>
 
-              <div className="space-y-6 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+              <div className="space-y-6 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-pearl">Weekly plan</h3>
                   <p className="text-sm text-pearl/70">
@@ -680,7 +680,7 @@
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aqua/30 bg-charcoal/70 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-aqua/30 bg-marine/70 px-4 py-3">
                   <div>
                     <p className="text-sm font-semibold text-pearl">Weekly summary</p>
                     <p className="text-xs text-pearl/60">
@@ -699,7 +699,7 @@
             </section>
 
             <section className="space-y-4">
-              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-pearl">Subscription</h3>
                   <p className="text-sm text-pearl/70">
@@ -737,7 +737,7 @@
                 )}
               </div>
 
-              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-pearl">Notes</h3>
                   <span className="text-xs text-pearl/60">Private to you</span>
@@ -778,7 +778,7 @@
       const lastPayment = user.lastSubscriptionPayment ? new Date(user.lastSubscriptionPayment).toLocaleString() : 'Never';
 
       return (
-        <li className="space-y-5 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+        <li className="space-y-5 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-pearl">{user.name || user.email}</h3>
@@ -960,7 +960,7 @@
       }, [users, query, selectedClass]);
 
       return (
-        <section className="space-y-6 rounded-3xl border border-aqua/30 bg-charcoal/70 p-6 shadow-lg">
+        <section className="space-y-6 rounded-3xl border border-aqua/30 bg-marine/70 p-6 shadow-lg">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-pearl">Admin control center</h2>
@@ -1221,7 +1221,7 @@
         notify('Subscription charge recorded');
       }
 
-      const pageClasses = 'bg-gradient-to-b from-charcoal via-lilac to-marine text-pearl';
+      const pageClasses = 'bg-gradient-to-b from-charcoal via-lilac/60 to-marine text-ink';
 
       return (
         <div className={`min-h-screen ${pageClasses}`}>
