@@ -14,6 +14,11 @@
             fontFamily: {
               display: ['\"Inter\"', 'system-ui', 'sans-serif'],
             },
+            colors: {
+              navy: '#0b1d3a',
+              midnight: '#061024',
+              gold: '#d4af37',
+            },
           },
         },
       },
@@ -24,7 +29,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="h-full bg-slate-100 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+<body class="h-full bg-navy text-white antialiased dark:bg-midnight">
   <div id="root" class="min-h-screen"></div>
 
   <script type="text/babel">
@@ -153,7 +158,7 @@
 
       if (!message) return null;
       return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded shadow-lg text-sm">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-gold px-6 py-2 text-sm font-medium text-navy shadow-lg ring-1 ring-gold/40">
           {message}
         </div>
       );
@@ -161,28 +166,29 @@
 
     function Header({ onLogout, onToggleTheme, theme, isAdmin, userName }) {
       return (
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Student Bank</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              A safe place for high schoolers to practice tracking money and subscriptions.
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Student Bank</h1>
+            <p className="text-sm text-white/70">
+              A focused space for students to practice budgeting with real-world banking habits.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              className="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-700 text-sm"
+              className="rounded-full border border-white/20 px-4 py-1.5 text-sm text-white/80 transition hover:border-gold hover:text-gold"
               onClick={onToggleTheme}
             >
               Toggle {theme === 'dark' ? 'Light' : 'Dark'} Mode
             </button>
             {userName && (
-              <span className="text-sm text-slate-600 dark:text-slate-300">
-                Signed in as <strong>{userName}</strong>{isAdmin && ' (Admin)'}
+              <span className="text-sm text-white/70">
+                Signed in as <strong className="text-white">{userName}</strong>
+                {isAdmin && <span className="text-gold"> (Admin)</span>}
               </span>
             )}
             {onLogout && (
               <button
-                className="px-3 py-1.5 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-sm"
+                className="rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
                 onClick={onLogout}
               >
                 Log out
@@ -206,61 +212,56 @@
 
       return (
         <div className="mx-auto max-w-xl">
-          <div className="relative overflow-hidden rounded-2xl bg-white p-6 pt-16 shadow-sm dark:bg-slate-800 sm:pt-20">
-            <img
-              src="./assets/logo-lockup.svg"
-              alt="Student Banking logo"
-              className="pointer-events-none select-none absolute right-6 top-4 w-28 opacity-90 sm:w-36 dark:opacity-80"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-semibold mb-1">Welcome!</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-transparent via-gold to-transparent opacity-70" aria-hidden="true"></div>
+            <h2 className="mb-2 text-2xl font-semibold text-white">Welcome!</h2>
+            <p className="mb-6 text-sm text-white/70">
               Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
               account.
             </p>
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="login-email">Email</label>
+                <label className="text-sm font-medium text-white" htmlFor="login-email">Email</label>
                 <input
                   id="login-email"
                   type="email"
                   required
-                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@school.edu"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="login-name">Name</label>
+                <label className="text-sm font-medium text-white" htmlFor="login-name">Name</label>
                 <input
                   id="login-name"
                   type="text"
-                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Only needed when creating an account"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="login-password">Password</label>
+                <label className="text-sm font-medium text-white" htmlFor="login-password">Password</label>
                 <input
                   id="login-password"
                   type="password"
                   required
                   minLength={4}
-                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Choose something easy to remember"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="login-class">Class number</label>
+                <label className="text-sm font-medium text-white" htmlFor="login-class">Class number</label>
                 <input
                   id="login-class"
                   type="text"
-                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={classNumber}
                   onChange={(event) => setClassNumber(event.target.value)}
                   placeholder="Optional — enter the class you belong to"
@@ -269,14 +270,14 @@
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="text-sm text-slate-600 dark:text-slate-300"
+                  className="text-sm text-white/70 transition hover:text-gold"
                   onClick={onToggleTheme}
                 >
                   Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded bg-indigo-600 px-4 py-2 text-white text-sm font-medium"
+                  className="inline-flex items-center justify-center rounded-full bg-gold px-5 py-2 text-sm font-semibold text-navy shadow-lg transition hover:bg-[#c99c2a]"
                 >
                   Sign in / Create account
                 </button>
@@ -290,20 +291,23 @@
     function RecurringList({ title, emptyHint, items, onRemove, disabled = false }) {
       return (
         <div>
-          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{title}</h4>
+          <h4 className="mb-2 text-sm font-semibold text-white">{title}</h4>
           {items.length === 0 ? (
-            <p className="text-sm text-slate-500">{emptyHint}</p>
+            <p className="text-sm text-white/60">{emptyHint}</p>
           ) : (
             <ul className="space-y-2">
               {items.map((item) => (
-                <li key={item.id} className="flex items-center justify-between gap-4 rounded bg-slate-50 dark:bg-slate-900 px-3 py-2">
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                >
                   <div>
-                    <div className="text-sm font-medium">{item.label}</div>
-                    <div className="text-xs text-slate-500">{fmtUSD(item.amount)} every week</div>
+                    <div className="text-sm font-medium text-white">{item.label}</div>
+                    <div className="text-xs text-white/60">{fmtUSD(item.amount)} every week</div>
                   </div>
                   {onRemove && !disabled && (
                     <button
-                      className="text-xs text-rose-600 hover:underline"
+                      className="text-xs text-gold hover:underline"
                       onClick={() => onRemove(item.id)}
                     >
                       Remove
@@ -319,33 +323,38 @@
 
     function TransactionHistory({ transactions }) {
       if (!transactions.length) {
-        return <p className="text-sm text-slate-500">No activity yet. Every deposit, withdrawal, and subscription payment will appear here.</p>;
+        return (
+          <p className="text-sm text-white/60">
+            No activity yet. Every deposit, withdrawal, and subscription payment will appear here.
+          </p>
+        );
       }
 
       const sorted = [...transactions].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
       return (
-        <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/60">
+        <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+          <table className="min-w-full divide-y divide-white/10 text-sm text-left text-white/80">
+            <thead className="bg-white/10 text-white">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">When</th>
-                <th className="px-3 py-2 text-left font-medium">Details</th>
-                <th className="px-3 py-2 text-right font-medium">Amount</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">When</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">Details</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-white/70">Amount</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            <tbody className="divide-y divide-white/10">
               {sorted.map((tx) => (
                 <tr key={tx.id}>
-                  <td className="px-3 py-2 whitespace-nowrap text-slate-600 dark:text-slate-300">
+                  <td className="whitespace-nowrap px-3 py-3 text-white/70">
                     {new Date(tx.ts || now()).toLocaleString()}
                   </td>
-                  <td className="px-3 py-2 text-slate-700 dark:text-slate-200">
-                    <div className="font-medium capitalize">{tx.type.replace('-', ' ')}</div>
-                    <div className="text-xs text-slate-500">{tx.memo || '—'}</div>
+                  <td className="px-3 py-3 text-white">
+                    <div className="font-medium capitalize text-white">{tx.type.replace('-', ' ')}</div>
+                    <div className="text-xs text-white/60">{tx.memo || '—'}</div>
                   </td>
-                  <td className={`px-3 py-2 text-right font-medium ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                    {tx.amount >= 0 ? '+' : ''}{fmtUSD(tx.amount)}
+                  <td className={`px-3 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-gold' : 'text-white/60'}`}>
+                    {tx.amount >= 0 ? '+' : ''}
+                    {fmtUSD(tx.amount)}
                   </td>
                 </tr>
               ))}
@@ -535,31 +544,25 @@
       }
 
       return (
-        <div className="relative pt-16 sm:pt-20">
-          <img
-            src="./assets/logo-icon.svg"
-            alt="Student Bank icon"
-            className="pointer-events-none select-none absolute right-0 top-0 w-16 opacity-90 sm:w-20 md:w-24 dark:opacity-80"
-            aria-hidden="true"
-          />
+        <div className="pt-10 sm:pt-12">
           <div className="grid gap-6 lg:grid-cols-3">
-            <section className="lg:col-span-2 space-y-6">
-              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold">Hi {user.name || 'there'}!</h2>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Current balance: <strong>{fmtUSD(balance)}</strong>
+            <section className="space-y-6 lg:col-span-2">
+              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-white">Hi {user.name || 'there'}!</h2>
+                  <p className="text-sm text-white/70">
+                    Current balance: <strong className="text-gold">{fmtUSD(balance)}</strong>
                   </p>
-                  <p className="text-xs text-slate-500">Every amount you add or remove is saved privately to this device.</p>
+                  <p className="text-xs text-white/60">Every amount you add or remove is saved privately to this device.</p>
                   {isFrozen && (
-                    <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
+                    <p className="mt-3 rounded-xl border border-gold/60 bg-gold/10 px-4 py-3 text-xs text-gold">
                       Your subscription is paused, so this account is read-only until the admin reactivates it.
                     </p>
                   )}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="amount-input">Amount</label>
+                    <label className="text-sm font-medium text-white" htmlFor="amount-input">Amount</label>
                     <input
                       id="amount-input"
                       type="number"
@@ -567,19 +570,19 @@
                       step="0.01"
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="memo-input">Memo</label>
+                    <label className="text-sm font-medium text-white" htmlFor="memo-input">Memo</label>
                     <input
                       id="memo-input"
                       type="text"
                       value={memo}
                       onChange={(event) => setMemo(event.target.value)}
-                      className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="What is this for?"
                     />
@@ -587,14 +590,14 @@
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded bg-emerald-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleDeposit}
                     disabled={isFrozen}
                   >
                     Add money
                   </button>
                   <button
-                    className="rounded bg-rose-600 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleWithdraw}
                     disabled={isFrozen}
                   >
@@ -603,10 +606,10 @@
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-6">
+              <div className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Weekly plan</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                  <h3 className="text-lg font-semibold text-white">Weekly plan</h3>
+                  <p className="text-sm text-white/70">
                     Track regular income like allowances and expenses like snacks or clubs. Run the weekly update to copy them into
                     your history automatically.
                   </p>
@@ -614,13 +617,13 @@
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="income-label">Add weekly income</label>
+                      <label className="text-sm font-medium text-white" htmlFor="income-label">Add weekly income</label>
                       <input
                         id="income-label"
                         type="text"
                         value={incomeLabel}
                         onChange={(event) => setIncomeLabel(event.target.value)}
-                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Allowance"
                       />
@@ -630,37 +633,37 @@
                         step="0.01"
                         value={incomeAmount}
                         onChange={(event) => setIncomeAmount(event.target.value)}
-                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
-                        placeholder="Amount each week"
+                        placeholder="Amount"
                       />
-                      <button
-                        className="rounded bg-emerald-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                        onClick={() => addRecurring('income')}
-                        disabled={isFrozen}
-                      >
-                        Save income
-                      </button>
                     </div>
+                    <button
+                      className="w-full rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={addWeeklyIncome}
+                      disabled={isFrozen}
+                    >
+                      Add income
+                    </button>
                     <RecurringList
                       title="Weekly income"
-                      emptyHint="No weekly income saved yet."
-                      items={user.weeklyIncome || []}
-                      onRemove={!isFrozen ? (id) => removeRecurring('income', id) : null}
+                      emptyHint="No repeating income yet. Add your allowance, job, or other regular earnings."
+                      items={user.weeklyIncome}
+                      onRemove={isFrozen ? null : removeWeeklyIncome}
                       disabled={isFrozen}
                     />
                   </div>
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium" htmlFor="expense-label">Add weekly expense</label>
+                      <label className="text-sm font-medium text-white" htmlFor="expense-label">Add weekly expense</label>
                       <input
                         id="expense-label"
                         type="text"
                         value={expenseLabel}
                         onChange={(event) => setExpenseLabel(event.target.value)}
-                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
-                        placeholder="Example: Lunch"
+                        placeholder="Example: Snacks"
                       />
                       <input
                         type="number"
@@ -668,87 +671,104 @@
                         step="0.01"
                         value={expenseAmount}
                         onChange={(event) => setExpenseAmount(event.target.value)}
-                        className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
-                        placeholder="Amount each week"
+                        placeholder="Amount"
                       />
-                      <button
-                        className="rounded bg-indigo-600 px-3 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                        onClick={() => addRecurring('expense')}
-                        disabled={isFrozen}
-                      >
-                        Save expense
-                      </button>
                     </div>
+                    <button
+                      className="w-full rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={addWeeklyExpense}
+                      disabled={isFrozen}
+                    >
+                      Add expense
+                    </button>
                     <RecurringList
                       title="Weekly expenses"
-                      emptyHint="No weekly expenses saved yet."
-                      items={user.weeklyExpenses || []}
-                      onRemove={!isFrozen ? (id) => removeRecurring('expense', id) : null}
+                      emptyHint="No repeating expenses yet. Add snacks, clubs, or anything you pay for regularly."
+                      items={user.weeklyExpenses}
+                      onRemove={isFrozen ? null : removeWeeklyExpense}
                       disabled={isFrozen}
                     />
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-lg bg-slate-50 dark:bg-slate-900 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div>
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
-                      Projected change each week: <strong>{fmtUSD(projectedNet)}</strong>
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Income {fmtUSD(totalIncome)} − Expenses {fmtUSD(totalExpenses)} − Subscription {fmtUSD(weeklySubscription)}
+                    <p className="text-sm font-semibold text-white">Weekly summary</p>
+                    <p className="text-xs text-white/60">
+                      Income: {fmtUSD(totalRecurring(user.weeklyIncome))} | Expenses: {fmtUSD(totalRecurring(user.weeklyExpenses))}
                     </p>
                   </div>
                   <button
-                    className="rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={applyWeeklyPlan}
+                    className="rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={runWeeklyPlan}
                     disabled={isFrozen}
                   >
-                    Run weekly update
+                    Apply this week's plan
                   </button>
                 </div>
               </div>
+            </section>
 
-              <div className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold">Subscription</h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Status: <strong>{user.subscriptionActive ? 'Active' : 'Paused'}</strong>
+            <section className="space-y-4">
+              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-white">Subscription</h3>
+                  <p className="text-sm text-white/70">
+                    Keep your subscription active to stay in control. You can only pay once every 7 days.
                   </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-300">
-                    Weekly fee: <strong>{fmtUSD(user.subscriptionAmount || DEFAULT_SUBSCRIPTION_AMOUNT)}</strong>
-                  </p>
-                  <p className="text-xs text-slate-500">Last payment: {lastPayment}</p>
-                  {user.subscriptionActive && !canPaySubscription && nextPaymentDate && (
-                    <p className="text-xs text-slate-500">Next payment available after {nextPaymentDate}</p>
+                  {!user.subscriptionActive && (
+                    <p className="rounded-xl border border-gold/60 bg-gold/10 px-4 py-3 text-xs text-gold">
+                      Your subscription is paused. Reach out to the admin to reactivate it.
+                    </p>
                   )}
                 </div>
+                <div className="space-y-2 text-sm text-white/70">
+                  <div className="flex justify-between">
+                    <span>Status</span>
+                    <span className="font-semibold text-white">{user.subscriptionActive ? 'Active' : 'Paused'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Weekly cost</span>
+                    <span className="font-semibold text-gold">{fmtUSD(user.subscriptionAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Next payment</span>
+                    <span className="font-semibold text-white">{nextEligible ? new Date(nextEligible).toLocaleDateString() : 'Anytime'}</span>
+                  </div>
+                </div>
                 <button
-                  className="w-full rounded bg-amber-500 px-4 py-2 text-white text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-full bg-gold px-4 py-2 text-sm font-semibold text-navy shadow transition hover:bg-[#c99c2a] disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={paySubscriptionNow}
-                  disabled={!canPaySubscription}
+                  disabled={isFrozen || cannotPayNow}
                 >
                   Pay subscription now
                 </button>
-                {!user.subscriptionActive && (
-                  <p className="text-xs text-slate-500">
-                    Need your subscription back on? Ask the admin to activate it so weekly charges resume.
-                  </p>
-                )}
-                {user.subscriptionActive && !canPaySubscription && (
-                  <p className="text-xs text-slate-500">
-                    You can only make one subscription payment every 7 days to avoid duplicate charges.
-                  </p>
+                {cannotPayNow && (
+                  <p className="text-xs text-white/60">You can pay again once seven full days have passed.</p>
                 )}
               </div>
-            </section>
 
-            <section className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold">History</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300">Review every move you have made so nothing is a surprise.</p>
+              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Notes</h3>
+                  <span className="text-xs text-white/60">Private to you</span>
+                </div>
+                <textarea
+                  className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  rows="5"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  onBlur={handleNotesBlur}
+                  placeholder="Keep track of your goals, reminders, or anything that helps you stay organized."
+                />
               </div>
-              <TransactionHistory transactions={user.transactions || []} />
             </section>
+          </div>
+
+          <div className="mt-10 space-y-3">
+            <h3 className="text-lg font-semibold text-white">Recent activity</h3>
+            <TransactionHistory transactions={user.transactions} />
           </div>
         </div>
       );
@@ -770,26 +790,32 @@
       const lastPayment = user.lastSubscriptionPayment ? new Date(user.lastSubscriptionPayment).toLocaleString() : 'Never';
 
       return (
-        <li className="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 space-y-4">
+        <li className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-lg font-semibold">{user.name || user.email}</h3>
-              <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                user.subscriptionActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
-              }`}>
+              <h3 className="text-lg font-semibold text-white">{user.name || user.email}</h3>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
+                  user.subscriptionActive
+                    ? 'border border-gold/80 bg-gold text-navy'
+                    : 'border border-white/20 text-white/70'
+                }`}
+              >
                 {user.subscriptionActive ? 'Subscription active' : 'Subscription paused'}
               </span>
             </div>
-            <p className="text-sm text-slate-600 dark:text-slate-300">{user.email}</p>
-            <p className="text-xs text-slate-500">{user.classNumber ? `Classroom: ${user.classNumber}` : 'No class assigned'}</p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">Balance: <strong>{fmtUSD(balance)}</strong></p>
-            <p className="text-xs text-slate-500">Last subscription payment: {lastPayment}</p>
-            <p className="text-xs text-slate-500">Projected weekly change: {fmtUSD(projectedNet)}</p>
+            <p className="text-sm text-white/70">{user.email}</p>
+            <p className="text-xs text-white/60">{user.classNumber ? `Classroom: ${user.classNumber}` : 'No class assigned'}</p>
+            <p className="text-sm text-white/70">
+              Balance: <strong className="text-white">{fmtUSD(balance)}</strong>
+            </p>
+            <p className="text-xs text-white/60">Last subscription payment: {lastPayment}</p>
+            <p className="text-xs text-white/60">Projected weekly change: {fmtUSD(projectedNet)}</p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2 text-sm">
-              <h4 className="font-semibold">Weekly income</h4>
+            <div className="space-y-2 text-sm text-white/70">
+              <h4 className="font-semibold text-white">Weekly income</h4>
               <ul className="space-y-1">
                 {(user.weeklyIncome || []).map((item) => (
                   <li key={item.id} className="flex justify-between">
@@ -797,11 +823,11 @@
                     <span>{fmtUSD(item.amount)}</span>
                   </li>
                 ))}
-                {(user.weeklyIncome || []).length === 0 && <li className="text-slate-500">None</li>}
+                {(user.weeklyIncome || []).length === 0 && <li className="text-white/50">None</li>}
               </ul>
             </div>
-            <div className="space-y-2 text-sm">
-              <h4 className="font-semibold">Weekly expenses</h4>
+            <div className="space-y-2 text-sm text-white/70">
+              <h4 className="font-semibold text-white">Weekly expenses</h4>
               <ul className="space-y-1">
                 {(user.weeklyExpenses || []).map((item) => (
                   <li key={item.id} className="flex justify-between">
@@ -809,14 +835,14 @@
                     <span>{fmtUSD(item.amount)}</span>
                   </li>
                 ))}
-                {(user.weeklyExpenses || []).length === 0 && <li className="text-slate-500">None</li>}
+                {(user.weeklyExpenses || []).length === 0 && <li className="text-white/50">None</li>}
               </ul>
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Subscription amount</label>
+              <label className="text-sm font-medium text-white">Subscription amount</label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -824,10 +850,10 @@
                   step="0.01"
                   value={subscription}
                   onChange={(event) => setSubscription(event.target.value)}
-                  className="w-full rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 />
                 <button
-                  className="rounded bg-indigo-600 px-3 py-2 text-white text-xs font-medium"
+                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
                   onClick={() => onChangeSubscriptionAmount(user.id, subscription)}
                 >
                   Save
@@ -835,22 +861,22 @@
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quick actions</label>
+              <label className="text-sm font-medium text-white">Quick actions</label>
               <div className="flex flex-wrap gap-2">
                 <button
-                  className="rounded bg-emerald-600 px-3 py-2 text-white text-xs font-medium"
+                  className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
                   onClick={() => onToggleSubscription(user.id, true)}
                 >
                   Activate
                 </button>
                 <button
-                  className="rounded bg-rose-600 px-3 py-2 text-white text-xs font-medium"
+                  className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white transition hover:border-gold"
                   onClick={() => onToggleSubscription(user.id, false)}
                 >
                   Pause
                 </button>
                 <button
-                  className="rounded bg-amber-500 px-3 py-2 text-white text-xs font-medium"
+                  className="rounded-full border border-gold px-4 py-2 text-xs font-semibold text-gold transition hover:bg-gold/10"
                   onClick={() => onChargeSubscription(user.id)}
                 >
                   Charge now
@@ -860,25 +886,25 @@
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Post an adjustment</label>
+            <label className="text-sm font-medium text-white">Post an adjustment</label>
             <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto]">
               <input
                 type="number"
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 placeholder="Amount"
               />
               <input
                 type="text"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                className="rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900"
+                className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 placeholder="Reason"
               />
               <button
-                className="rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-3 py-2 text-xs font-medium"
+                className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
                 onClick={() => {
                   const value = safeAmount(amount);
                   if (value === 0) return;
@@ -893,9 +919,9 @@
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs text-slate-500">Created {new Date(user.createdAt || now()).toLocaleDateString()}</span>
+            <span className="text-xs text-white/60">Created {new Date(user.createdAt || now()).toLocaleDateString()}</span>
             <button
-              className="text-xs text-rose-600 hover:underline"
+              className="text-xs text-white/60 transition hover:text-gold"
               onClick={() => {
                 if (window.confirm('Delete this account? All locally stored data will be removed.')) {
                   onRemoveUser(user.id);
@@ -946,11 +972,11 @@
       }, [users, query, selectedClass]);
 
       return (
-        <section className="rounded-2xl bg-white dark:bg-slate-800 shadow-sm p-6 space-y-6">
+        <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Admin control center</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
+              <h2 className="text-xl font-semibold text-white">Admin control center</h2>
+              <p className="text-sm text-white/70">
                 Review every student account, update subscription status, and help with balances.
               </p>
             </div>
@@ -959,7 +985,7 @@
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, email, or class"
-              className="rounded border border-slate-300 dark:border-slate-700 px-3 py-2 bg-white dark:bg-slate-900 text-sm"
+              className="w-full rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:w-64"
             />
           </div>
 
@@ -970,8 +996,8 @@
                 onClick={() => setSelectedClass('')}
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                   selectedClass === ''
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
-                    : 'border-slate-300 text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300'
+                    ? 'border-gold bg-gold/10 text-gold'
+                    : 'border-white/20 text-white/70 hover:border-gold'
                 }`}
               >
                 All classes
@@ -983,12 +1009,12 @@
                   onClick={() => setSelectedClass(item.value)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                     selectedClass.toLowerCase() === item.value.toLowerCase()
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-900/30 dark:text-indigo-200'
-                      : 'border-slate-300 text-slate-600 hover:border-slate-400 dark:border-slate-700 dark:text-slate-300'
+                      ? 'border-gold bg-gold/10 text-gold'
+                      : 'border-white/20 text-white/70 hover:border-gold'
                   }`}
                 >
                   Class {item.value}
-                  <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                  <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/80">
                     {item.count}
                   </span>
                 </button>
@@ -1008,7 +1034,7 @@
                 onRemoveUser={onRemoveUser}
               />
             ))}
-            {filtered.length === 0 && <li className="text-sm text-slate-500">No matching accounts.</li>}
+            {filtered.length === 0 && <li className="text-sm text-white/60">No matching accounts.</li>}
           </ul>
         </section>
       );
@@ -1216,7 +1242,10 @@
         notify('Subscription charge recorded');
       }
 
-      const pageClasses = theme === 'dark' ? 'bg-slate-900 text-slate-100' : 'bg-slate-100 text-slate-900';
+      const pageClasses =
+        theme === 'dark'
+          ? 'bg-gradient-to-b from-midnight via-midnight to-navy text-white'
+          : 'bg-gradient-to-b from-navy via-navy to-midnight text-white';
 
       return (
         <div className={`min-h-screen ${pageClasses}`}>
