@@ -166,7 +166,7 @@
 
     function Header({ onLogout, onToggleTheme, theme, isAdmin, userName }) {
       return (
-        <header className="flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-gold/30 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight text-white">Student Bank</h1>
             <p className="text-sm text-white/70">
@@ -175,7 +175,7 @@
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              className="rounded-full border border-white/20 px-4 py-1.5 text-sm text-white/80 transition hover:border-gold hover:text-gold"
+              className="rounded-full border border-gold/30 px-4 py-1.5 text-sm text-white/80 transition hover:border-gold hover:text-gold"
               onClick={onToggleTheme}
             >
               Toggle {theme === 'dark' ? 'Light' : 'Dark'} Mode
@@ -212,56 +212,56 @@
 
       return (
         <div className="mx-auto max-w-xl">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur">
+          <div className="relative overflow-hidden rounded-3xl border border-gold/40 bg-white p-8 text-navy shadow-2xl">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-transparent via-gold to-transparent opacity-70" aria-hidden="true"></div>
-            <h2 className="mb-2 text-2xl font-semibold text-white">Welcome!</h2>
-            <p className="mb-6 text-sm text-white/70">
+            <h2 className="mb-2 text-2xl font-semibold text-navy">Welcome!</h2>
+            <p className="mb-6 text-sm text-navy/70">
               Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
               account.
             </p>
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-white" htmlFor="login-email">Email</label>
+                <label className="text-sm font-medium text-navy" htmlFor="login-email">Email</label>
                 <input
                   id="login-email"
                   type="email"
                   required
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@school.edu"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-white" htmlFor="login-name">Name</label>
+                <label className="text-sm font-medium text-navy" htmlFor="login-name">Name</label>
                 <input
                   id="login-name"
                   type="text"
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Only needed when creating an account"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-white" htmlFor="login-password">Password</label>
+                <label className="text-sm font-medium text-navy" htmlFor="login-password">Password</label>
                 <input
                   id="login-password"
                   type="password"
                   required
                   minLength={4}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Choose something easy to remember"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-white" htmlFor="login-class">Class number</label>
+                <label className="text-sm font-medium text-navy" htmlFor="login-class">Class number</label>
                 <input
                   id="login-class"
                   type="text"
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   value={classNumber}
                   onChange={(event) => setClassNumber(event.target.value)}
                   placeholder="Optional — enter the class you belong to"
@@ -270,7 +270,7 @@
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  className="text-sm text-white/70 transition hover:text-gold"
+                  className="text-sm text-navy/70 transition hover:text-gold"
                   onClick={onToggleTheme}
                 >
                   Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
@@ -299,7 +299,7 @@
               {items.map((item) => (
                 <li
                   key={item.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                  className="flex items-center justify-between gap-4 rounded-lg border border-gold/30 bg-midnight/70 px-3 py-2"
                 >
                   <div>
                     <div className="text-sm font-medium text-white">{item.label}</div>
@@ -333,9 +333,9 @@
       const sorted = [...transactions].sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
       return (
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+        <div className="overflow-hidden rounded-xl border border-gold/30 bg-midnight/70">
           <table className="min-w-full divide-y divide-white/10 text-sm text-left text-white/80">
-            <thead className="bg-white/10 text-white">
+            <thead className="bg-navy text-white">
               <tr>
                 <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">When</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/70">Details</th>
@@ -547,7 +547,7 @@
         <div className="pt-10 sm:pt-12">
           <div className="grid gap-6 lg:grid-cols-3">
             <section className="space-y-6 lg:col-span-2">
-              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-white">Hi {user.name || 'there'}!</h2>
                   <p className="text-sm text-white/70">
@@ -570,7 +570,7 @@
                       step="0.01"
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
-                      className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="0.00"
                     />
@@ -582,7 +582,7 @@
                       type="text"
                       value={memo}
                       onChange={(event) => setMemo(event.target.value)}
-                      className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="What is this for?"
                     />
@@ -597,7 +597,7 @@
                     Add money
                   </button>
                   <button
-                    className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleWithdraw}
                     disabled={isFrozen}
                   >
@@ -606,7 +606,7 @@
                 </div>
               </div>
 
-              <div className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+              <div className="space-y-6 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-white">Weekly plan</h3>
                   <p className="text-sm text-white/70">
@@ -623,7 +623,7 @@
                         type="text"
                         value={incomeLabel}
                         onChange={(event) => setIncomeLabel(event.target.value)}
-                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Allowance"
                       />
@@ -633,7 +633,7 @@
                         step="0.01"
                         value={incomeAmount}
                         onChange={(event) => setIncomeAmount(event.target.value)}
-                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
@@ -661,7 +661,7 @@
                         type="text"
                         value={expenseLabel}
                         onChange={(event) => setExpenseLabel(event.target.value)}
-                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Snacks"
                       />
@@ -671,13 +671,13 @@
                         step="0.01"
                         value={expenseAmount}
                         onChange={(event) => setExpenseAmount(event.target.value)}
-                        className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
                     </div>
                     <button
-                      className="w-full rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-full border border-gold/30 px-4 py-2 text-sm font-semibold text-white transition hover:border-gold disabled:cursor-not-allowed disabled:opacity-60"
                       onClick={addWeeklyExpense}
                       disabled={isFrozen}
                     >
@@ -692,7 +692,7 @@
                     />
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-gold/30 bg-midnight/70 px-4 py-3">
                   <div>
                     <p className="text-sm font-semibold text-white">Weekly summary</p>
                     <p className="text-xs text-white/60">
@@ -711,7 +711,7 @@
             </section>
 
             <section className="space-y-4">
-              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold text-white">Subscription</h3>
                   <p className="text-sm text-white/70">
@@ -749,13 +749,13 @@
                 )}
               </div>
 
-              <div className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+              <div className="space-y-4 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">Notes</h3>
                   <span className="text-xs text-white/60">Private to you</span>
                 </div>
                 <textarea
-                  className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-xl border border-gold/40 bg-navy px-3 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                   rows="5"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
@@ -790,7 +790,7 @@
       const lastPayment = user.lastSubscriptionPayment ? new Date(user.lastSubscriptionPayment).toLocaleString() : 'Never';
 
       return (
-        <li className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+        <li className="space-y-5 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-lg font-semibold text-white">{user.name || user.email}</h3>
@@ -798,7 +798,7 @@
                 className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
                   user.subscriptionActive
                     ? 'border border-gold/80 bg-gold text-navy'
-                    : 'border border-white/20 text-white/70'
+                    : 'border border-gold/30 text-white/70'
                 }`}
               >
                 {user.subscriptionActive ? 'Subscription active' : 'Subscription paused'}
@@ -850,7 +850,7 @@
                   step="0.01"
                   value={subscription}
                   onChange={(event) => setSubscription(event.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                  className="w-full rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 />
                 <button
                   className="rounded-full bg-gold px-4 py-2 text-xs font-semibold text-navy shadow transition hover:bg-[#c99c2a]"
@@ -870,7 +870,7 @@
                   Activate
                 </button>
                 <button
-                  className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white transition hover:border-gold"
+                  className="rounded-full border border-gold/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-gold"
                   onClick={() => onToggleSubscription(user.id, false)}
                 >
                   Pause
@@ -893,14 +893,14 @@
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                className="rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 placeholder="Amount"
               />
               <input
                 type="text"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+                className="rounded-lg border border-gold/40 bg-navy px-3 py-2 text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
                 placeholder="Reason"
               />
               <button
@@ -972,7 +972,7 @@
       }, [users, query, selectedClass]);
 
       return (
-        <section className="space-y-6 rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lg">
+        <section className="space-y-6 rounded-3xl border border-gold/30 bg-midnight/70 p-6 shadow-lg">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-white">Admin control center</h2>
@@ -985,7 +985,7 @@
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, email, or class"
-              className="w-full rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:w-64"
+              className="w-full rounded-full border border-gold/40 bg-navy px-4 py-2 text-sm text-white placeholder-white/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold sm:w-64"
             />
           </div>
 
@@ -997,7 +997,7 @@
                 className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                   selectedClass === ''
                     ? 'border-gold bg-gold/10 text-gold'
-                    : 'border-white/20 text-white/70 hover:border-gold'
+                    : 'border-gold/30 text-white/70 hover:border-gold'
                 }`}
               >
                 All classes
@@ -1010,11 +1010,11 @@
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                     selectedClass.toLowerCase() === item.value.toLowerCase()
                       ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-white/20 text-white/70 hover:border-gold'
+                      : 'border-gold/30 text-white/70 hover:border-gold'
                   }`}
                 >
                   Class {item.value}
-                  <span className="ml-2 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                  <span className="ml-2 rounded-full bg-navy px-2 py-0.5 text-[10px] font-semibold text-white/80">
                     {item.count}
                   </span>
                 </button>
