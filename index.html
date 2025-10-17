@@ -8,18 +8,18 @@
   <script>
     window.tailwind = {
       config: {
-        darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
               display: ['\"Inter\"', 'system-ui', 'sans-serif'],
             },
             colors: {
-              charcoal: '#0f172a',
-              marine: '#17233b',
-              aqua: '#2dd4bf',
-              pearl: '#f5f7fb',
-              ink: '#111827',
+              charcoal: '#efe9ff',
+              marine: '#f9f5ff',
+              aqua: '#7c3aed',
+              pearl: '#1f2937',
+              ink: '#0f172a',
+              lilac: '#ede9fe',
             },
           },
         },
@@ -31,13 +31,12 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="h-full bg-charcoal text-pearl antialiased dark:bg-charcoal">
+<body class="h-full bg-charcoal text-ink antialiased">
   <div id="root" class="min-h-screen"></div>
 
   <script type="text/babel">
     const ADMIN_EMAIL = 'hasslerw748@stu.mw.k12.ny.us';
     const DB_KEY = 'student_bank_v1';
-    const THEME_KEY = 'student_bank_theme';
     const CURRENT_USER_KEY = 'student_bank_current_user';
     const DEFAULT_SUBSCRIPTION_AMOUNT = 5;
     const WEEK_MS = 1000 * 60 * 60 * 24 * 7;
@@ -160,13 +159,13 @@
 
       if (!message) return null;
       return (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-aqua px-6 py-2 text-sm font-medium text-ink shadow-lg ring-1 ring-aqua/40">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-aqua px-6 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-aqua/40">
           {message}
         </div>
       );
     }
 
-    function Header({ onLogout, onToggleTheme, theme, isAdmin, userName }) {
+    function Header({ onLogout, isAdmin, userName }) {
       return (
         <header className="flex flex-col gap-4 border-b border-aqua/30 pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -176,12 +175,6 @@
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="rounded-full border border-aqua/30 px-4 py-1.5 text-sm text-pearl/80 transition hover:border-aqua hover:text-aqua"
-              onClick={onToggleTheme}
-            >
-              Toggle {theme === 'dark' ? 'Light' : 'Dark'} Mode
-            </button>
             {userName && (
               <span className="text-sm text-pearl/70">
                 Signed in as <strong className="text-pearl">{userName}</strong>
@@ -190,7 +183,7 @@
             )}
             {onLogout && (
               <button
-                className="rounded-full bg-aqua px-4 py-1.5 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80"
+                className="rounded-full bg-aqua px-4 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-aqua/80"
                 onClick={onLogout}
               >
                 Log out
@@ -201,7 +194,7 @@
       );
     }
 
-    function LoginCard({ onAuthenticate, onToggleTheme, theme }) {
+    function LoginCard({ onAuthenticate }) {
       const [email, setEmail] = useState('');
       const [name, setName] = useState('');
       const [password, setPassword] = useState('');
@@ -228,7 +221,7 @@
                   id="login-email"
                   type="email"
                   required
-                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@school.edu"
@@ -239,7 +232,7 @@
                 <input
                   id="login-name"
                   type="text"
-                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   placeholder="Only needed when creating an account"
@@ -252,7 +245,7 @@
                   type="password"
                   required
                   minLength={4}
-                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Choose something easy to remember"
@@ -263,23 +256,16 @@
                 <input
                   id="login-class"
                   type="text"
-                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/60 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   value={classNumber}
                   onChange={(event) => setClassNumber(event.target.value)}
                   placeholder="Optional — enter the class you belong to"
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  className="text-sm text-ink/70 transition hover:text-aqua"
-                  onClick={onToggleTheme}
-                >
-                  Switch to {theme === 'dark' ? 'Light' : 'Dark'} Mode
-                </button>
+              <div className="flex items-center justify-end">
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-aqua px-5 py-2 text-sm font-semibold text-ink shadow-lg transition hover:bg-aqua/80"
+                  className="inline-flex items-center justify-center rounded-full bg-aqua px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-aqua/80"
                 >
                   Sign in / Create account
                 </button>
@@ -572,7 +558,7 @@
                       step="0.01"
                       value={amount}
                       onChange={(event) => setAmount(event.target.value)}
-                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="0.00"
                     />
@@ -584,7 +570,7 @@
                       type="text"
                       value={memo}
                       onChange={(event) => setMemo(event.target.value)}
-                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                       disabled={isFrozen}
                       placeholder="What is this for?"
                     />
@@ -592,7 +578,7 @@
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={handleDeposit}
                     disabled={isFrozen}
                   >
@@ -625,7 +611,7 @@
                         type="text"
                         value={incomeLabel}
                         onChange={(event) => setIncomeLabel(event.target.value)}
-                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Allowance"
                       />
@@ -635,13 +621,13 @@
                         step="0.01"
                         value={incomeAmount}
                         onChange={(event) => setIncomeAmount(event.target.value)}
-                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
                     </div>
                     <button
-                      className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                       onClick={addWeeklyIncome}
                       disabled={isFrozen}
                     >
@@ -663,7 +649,7 @@
                         type="text"
                         value={expenseLabel}
                         onChange={(event) => setExpenseLabel(event.target.value)}
-                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Example: Snacks"
                       />
@@ -673,7 +659,7 @@
                         step="0.01"
                         value={expenseAmount}
                         onChange={(event) => setExpenseAmount(event.target.value)}
-                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
+                        className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isFrozen}
                         placeholder="Amount"
                       />
@@ -702,7 +688,7 @@
                     </p>
                   </div>
                   <button
-                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={runWeeklyPlan}
                     disabled={isFrozen}
                   >
@@ -740,7 +726,7 @@
                   </div>
                 </div>
                 <button
-                  className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-ink shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-full bg-aqua px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-aqua/80 disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={paySubscriptionNow}
                   disabled={isFrozen || cannotPayNow}
                 >
@@ -757,7 +743,7 @@
                   <span className="text-xs text-pearl/60">Private to you</span>
                 </div>
                 <textarea
-                  className="w-full rounded-xl border border-aqua/40 bg-marine px-3 py-2 text-sm text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-xl border border-aqua/40 bg-marine px-3 py-2 text-sm text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                   rows="5"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
@@ -799,7 +785,7 @@
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
                   user.subscriptionActive
-                    ? 'border border-aqua/80 bg-aqua text-ink'
+                    ? 'border border-aqua/80 bg-aqua text-white'
                     : 'border border-aqua/30 text-pearl/70'
                 }`}
               >
@@ -852,10 +838,10 @@
                   step="0.01"
                   value={subscription}
                   onChange={(event) => setSubscription(event.target.value)}
-                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                  className="w-full rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 />
                 <button
-                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
+                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-aqua/80"
                   onClick={() => onChangeSubscriptionAmount(user.id, subscription)}
                 >
                   Save
@@ -866,7 +852,7 @@
               <label className="text-sm font-medium text-pearl">Quick actions</label>
               <div className="flex flex-wrap gap-2">
                 <button
-                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
+                  className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-aqua/80"
                   onClick={() => onToggleSubscription(user.id, true)}
                 >
                   Activate
@@ -895,18 +881,18 @@
                 step="0.01"
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
-                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 placeholder="Amount"
               />
               <input
                 type="text"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
+                className="rounded-lg border border-aqua/40 bg-marine px-3 py-2 text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua"
                 placeholder="Reason"
               />
               <button
-                className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-ink shadow transition hover:bg-aqua/80"
+                className="rounded-full bg-aqua px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-aqua/80"
                 onClick={() => {
                   const value = safeAmount(amount);
                   if (value === 0) return;
@@ -987,7 +973,7 @@
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by name, email, or class"
-              className="w-full rounded-full border border-aqua/40 bg-marine px-4 py-2 text-sm text-pearl placeholder-white/50 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua sm:w-64"
+              className="w-full rounded-full border border-aqua/40 bg-marine px-4 py-2 text-sm text-pearl placeholder-ink/40 focus:border-aqua focus:outline-none focus:ring-1 focus:ring-aqua sm:w-64"
             />
           </div>
 
@@ -1050,7 +1036,6 @@
       const [users, setUsersState] = useState(loadUsers);
       const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem(CURRENT_USER_KEY));
       const [toast, setToast] = useState(null);
-      const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'light');
 
       const setUsers = useCallback((updater) => {
         setUsersState((prev) => {
@@ -1071,11 +1056,6 @@
       }, []);
 
       useEffect(() => {
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-        localStorage.setItem(THEME_KEY, theme);
-      }, [theme]);
-
-      useEffect(() => {
         if (currentUserId) {
           localStorage.setItem(CURRENT_USER_KEY, currentUserId);
         } else {
@@ -1091,14 +1071,11 @@
           if (event.key === CURRENT_USER_KEY) {
             setCurrentUserId(event.newValue || null);
           }
-          if (event.key === THEME_KEY) {
-            setTheme(event.newValue === 'dark' ? 'dark' : 'light');
-          }
         }
 
         window.addEventListener('storage', handleStorage);
         return () => window.removeEventListener('storage', handleStorage);
-      }, [setUsersState, setCurrentUserId, setTheme]);
+      }, [setUsersState, setCurrentUserId]);
 
       const currentUser = useMemo(
         () => users.find((user) => user.id === currentUserId) || null,
@@ -1244,29 +1221,18 @@
         notify('Subscription charge recorded');
       }
 
-      const pageClasses =
-        theme === 'dark'
-          ? 'bg-gradient-to-b from-charcoal via-charcoal to-marine text-pearl'
-          : 'bg-gradient-to-b from-marine via-marine to-charcoal text-pearl';
+      const pageClasses = 'bg-gradient-to-b from-charcoal via-lilac to-marine text-pearl';
 
       return (
         <div className={`min-h-screen ${pageClasses}`}>
           <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
             <Header
               onLogout={currentUser ? logout : null}
-              onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-              theme={theme}
               isAdmin={isAdmin}
               userName={currentUser ? currentUser.name || currentUser.email : null}
             />
 
-            {!currentUser && (
-              <LoginCard
-                onAuthenticate={handleAuthenticate}
-                onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-                theme={theme}
-              />
-            )}
+            {!currentUser && <LoginCard onAuthenticate={handleAuthenticate} />}
 
             {currentUser && !isAdmin && (
               <StudentDashboard
