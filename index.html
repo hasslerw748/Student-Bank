@@ -111,7 +111,8 @@
         transactions: normalizeTransactions(user.transactions || []),
         weeklyIncome: normalizeRecurringList(user.weeklyIncome || []),
         weeklyExpenses: normalizeRecurringList(user.weeklyExpenses || user.weeklyDeductions || []),
-        subscriptionActive: Boolean(user.subscriptionActive),
+        subscriptionActive:
+          typeof user.subscriptionActive === 'boolean' ? user.subscriptionActive : true,
         subscriptionAmount: typeof user.subscriptionAmount === 'number' && isFinite(user.subscriptionAmount)
           ? safeAmount(user.subscriptionAmount)
           : DEFAULT_SUBSCRIPTION_AMOUNT,
@@ -1124,7 +1125,7 @@
             email: trimmedEmail,
             password: trimmedPassword,
             classNumber: trimmedClass,
-            subscriptionActive: trimmedEmail === ADMIN_EMAIL.toLowerCase() ? true : false,
+            subscriptionActive: true,
             subscriptionAmount: DEFAULT_SUBSCRIPTION_AMOUNT,
             transactions: [],
             weeklyIncome: [],
