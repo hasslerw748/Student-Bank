@@ -101,6 +101,18 @@
     }
 
     function normalizeUser(user) {
+      const pausedAt =
+        typeof user.subscriptionPausedAt === 'number' && isFinite(user.subscriptionPausedAt)
+          ? user.subscriptionPausedAt
+          : null;
+
+      let subscriptionActive =
+        typeof user.subscriptionActive === 'boolean' ? user.subscriptionActive : true;
+
+      if (!subscriptionActive && !pausedAt) {
+        subscriptionActive = true;
+      }
+
       return {
         id: user.id || uid(),
         name: user.name || '',
@@ -111,8 +123,8 @@
         transactions: normalizeTransactions(user.transactions || []),
         weeklyIncome: normalizeRecurringList(user.weeklyIncome || []),
         weeklyExpenses: normalizeRecurringList(user.weeklyExpenses || user.weeklyDeductions || []),
-        subscriptionActive:
-          typeof user.subscriptionActive === 'boolean' ? user.subscriptionActive : true,
+        subscriptionActive,
+        subscriptionPausedAt: pausedAt,
         subscriptionAmount: typeof user.subscriptionAmount === 'number' && isFinite(user.subscriptionAmount)
           ? safeAmount(user.subscriptionAmount)
           : DEFAULT_SUBSCRIPTION_AMOUNT,
@@ -1126,6 +1138,7 @@
             password: trimmedPassword,
             classNumber: trimmedClass,
             subscriptionActive: true,
+            subscriptionPausedAt: null,
             subscriptionAmount: DEFAULT_SUBSCRIPTION_AMOUNT,
             transactions: [],
             weeklyIncome: [],
@@ -1163,8 +1176,9 @@
       }
 
       function toggleSubscription(id, active) {
-        updateUser(id, (user) => ({
+        updateUser(id, () => ({
           subscriptionActive: Boolean(active),
+          subscriptionPausedAt: active ? null : now(),
         }));
         notify(active ? 'Subscription activated' : 'Subscription paused');
       }
