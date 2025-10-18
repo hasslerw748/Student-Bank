@@ -3,241 +3,1252 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TeenBank — Modular React Demo</title>
-
+  <title>Student Bank</title>
+  <meta name="description" content="A simple subscription-based budgeting simulator for students learning banking basics." />
   <script>
-    window.tailwind = { config: { darkMode: 'class' } };
+    window.tailwind = {
+      config: {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['\"Inter\"', 'system-ui', 'sans-serif'],
+            },
+          },
+        },
+      },
+    };
   </script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
-  <div id="root" class="h-full"></div>
+<body class="h-full bg-slate-50 text-slate-900 antialiased">
+  <div id="root" class="min-h-screen"></div>
 
-  <!-- ----------------- utils.js ----------------- -->
   <script type="text/babel">
     const ADMIN_EMAIL = 'hasslerw748@stu.mw.k12.ny.us';
-    const DB_KEY = 'teenbank_participants_v2';
-    const THEME_KEY = 'teenbank_theme';
-    const DEFAULT_PARTICIPANTS = [
-      { id: 1, name: 'Ava',  email: 'ava@gmail.com',  subscriptionActive: false, weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 50, memo: 'Starting balance', ts: Date.now()-3_600_000}] },
-      { id: 2, name: 'Ben',  email: 'ben@gmail.com',  subscriptionActive: true,  weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 75, memo: 'Starting balance', ts: Date.now()-2_600_000}] },
-      { id: 3, name: 'Maya', email: 'maya@gmail.com', subscriptionActive: false, weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 30, memo: 'Starting balance', ts: Date.now()-1_600_000}] },
-    ];
+    const DB_KEY = 'student_bank_v1';
+    const CURRENT_USER_KEY = 'student_bank_current_user';
+    const DEFAULT_SUBSCRIPTION_AMOUNT = 5;
+    const WEEK_MS = 1000 * 60 * 60 * 24 * 7;
 
-    function fmtUSD(n){ return (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
-    function now(){ return Date.now(); }
-    function computeBalance(user){
-      const tx = user.transactions || [];
-      return tx.reduce((s,t)=> s + Number(t.amount||0), 0);
+    function now() {
+      return Date.now();
     }
 
-    function migrateIfNeeded(raw){
-      const list = raw ? JSON.parse(raw) : DEFAULT_PARTICIPANTS;
-      return list.map(u => {
-        const copy = {...u};
-        if (!Array.isArray(copy.transactions)) copy.transactions = [];
-        if (typeof copy.balance === 'number' && copy.transactions.length === 0){
-          if (copy.balance !== 0) copy.transactions.push({ amount: copy.balance, memo: 'Imported starting balance', ts: now()-5000 });
-          delete copy.balance;
-        }
-        return copy;
+    function uid() {
+      return Math.random().toString(36).slice(2) + Date.now().toString(36);
+    }
+
+    function fmtUSD(value) {
+      return (Number(value) || 0).toLocaleString(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
       });
     }
 
-    function loadParticipants(){
-      try { const stored = localStorage.getItem(DB_KEY); return migrateIfNeeded(stored); }
-      catch(e){ console.warn('Load fail, using defaults', e); return DEFAULT_PARTICIPANTS; }
+    function safeAmount(value) {
+      const num = Number(value);
+      if (!isFinite(num)) return 0;
+      return Math.round(num * 100) / 100;
     }
 
-    function saveParticipants(list){
-      localStorage.setItem(DB_KEY, JSON.stringify(list));
+    function totalRecurring(list = []) {
+      return list.reduce((sum, item) => sum + safeAmount(item.amount), 0);
     }
-  </script>
 
-  <!-- ----------------- Toast.jsx ----------------- -->
-  <script type="text/babel">
-    const { useEffect } = React;
-    function Toast({ text, onClose }){
-      useEffect(()=>{ const t = setTimeout(onClose,1800); return ()=>clearTimeout(t); }, [onClose]);
-      return <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/90 text-white text-sm px-3 py-2 rounded shadow-lg">{text}</div>;
+    function createTransaction({ amount, memo, type }) {
+      return {
+        id: uid(),
+        amount: safeAmount(amount),
+        memo: memo || '',
+        type: type || 'general',
+        ts: now(),
+      };
     }
-  </script>
 
-  <!-- ----------------- ProgressBar.jsx ----------------- -->
-  <script type="text/babel">
-    function ProgressBar({ value, max }){
-      const pct = max>0?Math.min(100,Math.round((value/max)*100)):0;
-      return (
-        <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
-          <div className="h-2 bg-indigo-600" style={{width:pct+'%'}}/>
-        </div>
-      );
+    function computeBalance(user) {
+      return (user.transactions || []).reduce((sum, tx) => sum + safeAmount(tx.amount), 0);
     }
-  </script>
 
-  <!-- ----------------- GoalRow.jsx ----------------- -->
-  <script type="text/babel">
-    const { useState } = React;
-    function GoalRow({ g, onContribute }){
-      const [contrib,setContrib] = useState('');
-      const saved=Number(g.saved)||0, target=Number(g.target)||0, remaining=Math.max(0,target-saved);
-      return (
-        <div className="p-3 rounded border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <div className="font-medium">{g.name}</div>
-              <div className="text-sm text-slate-600 dark:text-slate-300">{fmtUSD(saved)} / {fmtUSD(target)} <span className="text-slate-500">({fmtUSD(remaining)} left)</span></div>
-            </div>
-            <div className="flex items-center gap-2">
-              <input type="number" step="0.01" placeholder="$ add" value={contrib} onChange={e=>setContrib(e.target.value)} className="border p-1 rounded w-28 dark:bg-slate-800 dark:border-slate-700"/>
-              <button className="bg-emerald-600 text-white px-3 py-1 rounded" onClick={()=>{ const n=parseFloat(contrib); if(!isNaN(n)&&n>0){ onContribute(n); setContrib(''); } }}>Contribute</button>
-            </div>
-          </div>
-          <div className="mt-2"><ProgressBar value={saved} max={target} /></div>
-        </div>
-      );
+    function lastSubscriptionDate(user) {
+      const history = (user.transactions || []).filter((tx) => tx.type === 'subscription');
+      if (history.length === 0) return null;
+      const latest = history.reduce((acc, tx) => (tx.ts > acc.ts ? tx : acc), history[0]);
+      return latest.ts;
     }
-  </script>
 
-  <!-- ----------------- AdminPanel.jsx ----------------- -->
-  <script type="text/babel">
-    const { useState, useMemo } = React;
-    function AdminPanel({ participants, onAdjust, onSubscribe, onCancel, onDelete }){
-      const [q,setQ] = useState('');
-      const filtered = useMemo(()=>{ const t=q.trim().toLowerCase(); return t?participants.filter(p=>(p.name+' '+p.email).toLowerCase().includes(t)):participants; }, [participants,q]);
-      return (
-        <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Admin · Participants</h3>
-            <input className="border rounded px-2 py-1 text-sm dark:bg-slate-900 dark:border-slate-700" placeholder="Search name or email" value={q} onChange={e=>setQ(e.target.value)} />
-          </div>
-          <ul className="divide-y dark:divide-slate-700">
-            {filtered.map(p=>(
-              <li key={p.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="font-medium">{p.name} <span className="text-slate-500">({p.email})</span></div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">Balance: <strong>{fmtUSD(computeBalance(p))}</strong></div>
-                  <div className="text-xs text-slate-500">Subscription: {p.subscriptionActive?'Active':'Inactive'}</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="px-3 py-1 rounded bg-indigo-600 text-white text-xs" onClick={()=>onSubscribe(p.id)}>Activate</button>
-                  <button className="px-3 py-1 rounded bg-rose-600 text-white text-xs" onClick={()=>onCancel(p.id)}>Cancel</button>
-                  <button className="px-3 py-1 rounded bg-emerald-600 text-white text-xs" onClick={()=>onAdjust(p.id,+5,'Admin +$5')}>+ $5</button>
-                  <button className="px-3 py-1 rounded bg-amber-600 text-white text-xs" onClick={()=>onAdjust(p.id,-5,'Admin -$5')}>− $5</button>
-                  <button className="px-3 py-1 rounded bg-slate-800 text-white text-xs" onClick={()=>onDelete(p.id)}>Delete</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-sm text-slate-500">Admin can control access, write adjustments as transactions, and manage subscriptions.</p>
-        </section>
-      );
+    function normalizeRecurringList(list = []) {
+      if (!Array.isArray(list)) return [];
+      return list.map((item) => ({
+        id: item.id || uid(),
+        label: item.label || item.name || 'Weekly item',
+        amount: safeAmount(item.amount),
+      })).filter((item) => item.amount !== 0 && item.label);
     }
-  </script>
 
-  <!-- ----------------- UserPanel.jsx ----------------- -->
-  <script type="text/babel">
-    const { useState, useMemo } = React;
-    function UserPanel({ user, updateUser, applyWeeklyAll }){
-      const [delta,setDelta] = useState(''), [memo,setMemo]=useState(''),
-            [wdName,setWdName]=useState(''), [wdAmt,setWdAmt]=useState(''),
-            [goalName,setGoalName]=useState(''), [goalTarget,setGoalTarget]=useState(''),
-            [cat,setCat]=useState(''), [bAmt,setBAmt]=useState('');
+    function normalizeTransactions(list = []) {
+      if (!Array.isArray(list)) return [];
+      return list.map((tx) => ({
+        id: tx.id || uid(),
+        amount: safeAmount(tx.amount),
+        memo: tx.memo || '',
+        type: tx.type || 'general',
+        ts: typeof tx.ts === 'number' ? tx.ts : now(),
+      })).filter((tx) => tx.amount !== 0 || tx.memo);
+    }
 
-      const balance = useMemo(()=>computeBalance(user), [user.transactions]);
+    function normalizeUser(user) {
+      return {
+        id: user.id || uid(),
+        name: user.name || '',
+        email: (user.email || '').trim(),
+        password: user.password || '',
+        classNumber: typeof user.classNumber === 'string' ? user.classNumber.trim() : '',
+        createdAt: user.createdAt || now(),
+        transactions: normalizeTransactions(user.transactions || []),
+        weeklyIncome: normalizeRecurringList(user.weeklyIncome || []),
+        weeklyExpenses: normalizeRecurringList(user.weeklyExpenses || user.weeklyDeductions || []),
+        subscriptionActive:
+          typeof user.subscriptionActive === 'boolean' ? user.subscriptionActive : true,
+        subscriptionAmount: typeof user.subscriptionAmount === 'number' && isFinite(user.subscriptionAmount)
+          ? safeAmount(user.subscriptionAmount)
+          : DEFAULT_SUBSCRIPTION_AMOUNT,
+        lastWeeklyRun: user.lastWeeklyRun || null,
+        lastSubscriptionPayment: user.lastSubscriptionPayment || lastSubscriptionDate(user) || null,
+        notes: user.notes || '',
+      };
+    }
 
-      function pushTx(amount,memo){ updateUser(u=>({...u, transactions:[...(u.transactions||[]), {amount:Number(amount), memo:memo||null, ts:now()}]})); }
-
-      function deposit(){
-        const n=parseFloat(delta); if(isNaN(n)||n<=0) return;
-        let remaining=n;
-        const updGoals=(user.goals||[]).map(g=>{ if(remaining<=0) return g; const need=Math.max(0,Number(g.target)-Number(g.saved)); const add=Math.min(need,remaining); remaining-=add; return {...g,saved:Number(g.saved)+add}; });
-        updateUser(u=>({...u,goals:updGoals}));
-        pushTx(n,memo||'Deposit'); setDelta(''); setMemo('');
+    function loadUsers() {
+      try {
+        const raw = localStorage.getItem(DB_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeUser);
+      } catch (error) {
+        console.warn('Failed to load users:', error);
+        return [];
       }
+    }
 
-      function withdraw(){ const n=parseFloat(delta); if(isNaN(n)||n<=0) return; pushTx(-n,memo||'Withdraw'); setDelta(''); setMemo(''); }
-      function undoLast(){ updateUser(u=>({...u, transactions:(u.transactions||[]).slice(0,-1)})); }
-
-      function addWeekly(){ const n=parseFloat(wdAmt); if(!wdName||isNaN(n)||n<=0) return; updateUser(u=>({...u, weeklyDeductions:[...(u.weeklyDeductions||[]), {name:wdName, amount:n}]})); pushTx(-n, `Weekly: ${wdName}`); setWdName(''); setWdAmt(''); }
-      function removeWeekly(idx){ updateUser(u=>{ const arr=[...(u.weeklyDeductions||[])]; arr.splice(idx,1); return {...u, weeklyDeductions:arr}; }); }
-      function addGoal(){ const t=parseFloat(goalTarget); if(!goalName||isNaN(t)||t<=0) return; updateUser(u=>({...u, goals:[...(u.goals||[]), {name:goalName,target:t,saved:0}]})); setGoalName(''); setGoalTarget(''); }
-      function contributeGoal(idx,amt){ const n=Number(amt); if(isNaN(n)||n<=0) return; updateUser(u=>{ const goals=[...(u.goals||[])]; const g={...goals[idx]}; const maxAdd=Math.min(n,Math.max(0,Number(g.target)-Number(g.saved))); if(maxAdd<=0) return u; g.saved=Number(g.saved)+maxAdd; goals[idx]=g; return {...u, goals}; }); pushTx(-n,'Goal contribution'); }
-      function upsertBudget(){ const n=parseFloat(bAmt); if(!cat||isNaN(n)||n<=0) return; updateUser(u=>({...u, budgets:{...(u.budgets||{}), [cat]:n}})); setCat(''); setBAmt(''); }
-      function deleteBudget(k){ updateUser(u=>{ const b={...(u.budgets||{})}; delete b[k]; return {...u, budgets:b}; }); }
-
-      return (
-        <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-6">
-          <div><h3 className="text-lg font-semibold">Welcome, {user.name}</h3><p className="text-sm text-slate-600 dark:text-slate-300">Balance: <strong>{fmtUSD(balance)}</strong></p></div>
-          {/* Transactions */}
-          <div className="space-y-2">
-            <h4 className="font-medium">Transactions</h4>
-            <div className="flex flex-wrap gap-2 items-center">
-              <input type="number" step="0.01" placeholder="$ amount" className="border p-2 rounded w-36 dark:bg-slate-900 dark:border-slate-700" value={delta} onChange={e=>setDelta(e.target.value)}/>
-              <input type="text" placeholder="Memo (optional)" className="border p-2 rounded w-60 dark:bg-slate-900 dark:border-slate-700" value={memo} onChange={e=>setMemo(e.target.value)}/>
-              <button className="bg-emerald-600 text-white px-3 py-2 rounded" onClick={deposit}>Deposit</button>
-              <button className="bg-amber-600 text-white px-3 py-2 rounded" onClick={withdraw}>Withdraw</button>
-              <button className="bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-2 rounded" onClick={undoLast}>Undo last</button>
-            </div>
-            <ul className="divide-y dark:divide-slate-700 bg-slate-50 dark:bg-slate-900 rounded">
-              {(user.transactions||[]).slice().reverse().map((t,i)=> <li key={i} className="flex items-center justify-between p-2"><span className="text-sm">{new Date(t.ts||now()).toLocaleString()} — {t.memo||'—'}</span><span className={"text-sm font-medium "+(t.amount>=0?'text-emerald-700':'text-rose-400')}>{t.amount>=0?'+':''}{Number(t.amount).toFixed(2)}</span></li>)}
-              {(user.transactions||[]).length===0 && <li className="p-2 text-sm text-slate-500">No transactions yet.</li>}
-            </ul>
-          </div>
-
-          {/* Weekly, Goals, Budgets (reuse code from original) */}
-          {/* ... you can add weekly, goals, budgets sections similarly using the same logic ... */}
-        </section>
-      );
+    function saveUsers(users) {
+      localStorage.setItem(DB_KEY, JSON.stringify(users));
     }
   </script>
 
-  <!-- ----------------- App.jsx ----------------- -->
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
-    function App(){
-      const [participants,setParticipants]=useState(loadParticipants);
-      const [currentEmail,setCurrentEmail]=useState('');
-      const [password,setPassword]=useState('');
-      const [toast,setToast]=useState(null);
-      const [theme,setTheme]=useState(localStorage.getItem(THEME_KEY)||'light');
 
-      useEffect(()=>{ saveParticipants(participants); }, [participants]);
-      useEffect(()=>{ document.documentElement.classList.toggle('dark',theme==='dark'); localStorage.setItem(THEME_KEY,theme); }, [theme]);
+    function Toast({ message, onDismiss }) {
+      useEffect(() => {
+        if (!message) return;
+        const id = setTimeout(() => onDismiss && onDismiss(), 2400);
+        return () => clearTimeout(id);
+      }, [message, onDismiss]);
 
-      const currentUser=useMemo(()=>participants.find(p=>p.email.toLowerCase()===currentEmail.toLowerCase())||null,[participants,currentEmail]);
-      const isAdmin=currentUser&&currentUser.email===ADMIN_EMAIL;
-      function notify(msg){ setToast(msg); }
+      if (!message) return null;
+      return (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-6 py-2 text-sm font-medium text-white shadow-lg ring-1 ring-indigo-200">
+          {message}
+        </div>
+      );
+    }
 
-      function login(email,pw){
-        const e=(email||'').trim().toLowerCase(); if(!e.includes('@')) return notify('Enter a valid email');
-        let user=participants.find(u=>u.email.toLowerCase()===e);
-        if(!user){ user={id:Date.now(), name:e.split('@')[0], email:e, subscriptionActive:false, weeklyDeductions:[], goals:[], budgets:{}, transactions:[]}; setParticipants(prev=>[...prev,user]); }
-        setCurrentEmail(user.email); setPassword(''); notify('Logged in as '+user.name);
+    function Header({ onLogout, isAdmin, userName }) {
+      return (
+        <header className="flex flex-col gap-4 border-b border-indigo-200 pb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-900">Student Bank</h1>
+            <p className="text-sm text-slate-600">
+              A focused space for students to practice budgeting with real-world banking habits.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {userName && (
+              <span className="text-sm text-slate-600">
+                Signed in as <strong className="text-slate-900">{userName}</strong>
+                {isAdmin && <span className="text-indigo-600"> (Admin)</span>}
+              </span>
+            )}
+            {onLogout && (
+              <button
+                className="rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-semibold text-white shadow transition hover:bg-indigo-500"
+                onClick={onLogout}
+              >
+                Log out
+              </button>
+            )}
+          </div>
+        </header>
+      );
+    }
+
+    function LoginCard({ onAuthenticate }) {
+      const [email, setEmail] = useState('');
+      const [name, setName] = useState('');
+      const [password, setPassword] = useState('');
+      const [classNumber, setClassNumber] = useState('');
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        onAuthenticate({ email, name, password, classNumber });
       }
-      function logout(){ setCurrentEmail(''); setPassword(''); }
-
-      function updateMe(mut){ setParticipants(prev=>prev.map(u=>u.email===currentUser.email?(typeof mut==='function'?mut(u):{...u,...mut}):u)); }
-      function applyMyWeeklyNow(){ if(!currentUser) return; setParticipants(prev=>prev.map(u=>{ if(u.email!==currentUser.email) return u; const txs=[...(u.transactions||[])]; (u.weeklyDeductions||[]).forEach(d=>txs.push({amount:-Number(d.amount), memo:`Weekly: ${d.name}`, ts:now()})); return {...u,transactions:txs}; })); notify('Applied weekly deductions'); }
 
       return (
-        <div className="p-5 max-w-6xl mx-auto grid md:grid-cols-3 gap-5">
-          {toast && <Toast text={toast} onClose={()=>setToast(null)} />}
-          {!currentUser && <div className="col-span-3 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-3">
-            <h2 className="text-lg font-semibold">Login / Create User</h2>
-            <input type="email" placeholder="Email" value={currentEmail} onChange={e=>setCurrentEmail(e.target.value)} className="border w-full p-2 rounded dark:bg-slate-900 dark:border-slate-700"/>
-            <button className="bg-indigo-600 text-white px-4 py-2 rounded" onClick={()=>login(currentEmail,password)}>Login / Create</button>
-            <button className="px-4 py-2 border rounded" onClick={()=>setTheme(theme==='dark'?'light':'dark')}>Toggle {theme==='dark'?'Light':'Dark'} Mode</button>
-          </div>}
-          {currentUser && (
-            <>
-              {isAdmin ? <AdminPanel participants={participants} onAdjust={(id,a,m)=>setParticipants(prev=>prev.map(p=>p.id===id?{...p,transactions:[...(p.transactions||[]),{amount:a,memo:m,ts:now()}]:p))} onSubscribe={id=>setParticipants(prev=>prev.map(p=>p.id===id?{...p,subscriptionActive:true}:p))} onCancel={id=>setParticipants(prev=>prev.map(p=>p.id===id?{...p,subscriptionActive:false}:p))} onDelete={id=>setParticipants(prev=>prev.filter(p=>p.id!==id))} /> : <UserPanel user={currentUser} updateUser={updateMe} applyWeeklyAll={applyMyWeeklyNow} />}
-              <button className="col-span-3 mt-3 px-4 py-2 bg-slate-300 dark:bg-slate-700 rounded" onClick={logout}>Logout</button>
-            </>
+        <div className="mx-auto max-w-xl">
+          <div className="relative overflow-hidden rounded-3xl border border-indigo-200 bg-white p-8 text-slate-900 shadow-2xl">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-transparent via-indigo-200 to-transparent opacity-70" aria-hidden="true"></div>
+            <h2 className="mb-2 text-2xl font-semibold text-slate-900">Welcome!</h2>
+            <p className="mb-6 text-sm text-slate-900/70">
+              Sign in with your school email. If it is your first time here, choose a password and tell us your name to create an
+              account.
+            </p>
+            <form className="space-y-5" onSubmit={handleSubmit}>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-900" htmlFor="login-email">Email</label>
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@school.edu"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-900" htmlFor="login-name">Name</label>
+                <input
+                  id="login-name"
+                  type="text"
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Only needed when creating an account"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-900" htmlFor="login-password">Password</label>
+                <input
+                  id="login-password"
+                  type="password"
+                  required
+                  minLength={4}
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Choose something easy to remember"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-900" htmlFor="login-class">Class number</label>
+                <input
+                  id="login-class"
+                  type="text"
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  value={classNumber}
+                  onChange={(event) => setClassNumber(event.target.value)}
+                  placeholder="Optional — enter the class you belong to"
+                />
+              </div>
+              <div className="flex items-center justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-500"
+                >
+                  Sign in / Create account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function RecurringList({ title, emptyHint, items, onRemove, disabled = false }) {
+      return (
+        <div>
+          <h4 className="mb-2 text-sm font-semibold text-slate-900">{title}</h4>
+          {items.length === 0 ? (
+            <p className="text-sm text-slate-500">{emptyHint}</p>
+          ) : (
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-4 rounded-lg border border-indigo-200 bg-slate-100 px-3 py-2"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">{item.label}</div>
+                    <div className="text-xs text-slate-500">{fmtUSD(item.amount)} every week</div>
+                  </div>
+                  {onRemove && !disabled && (
+                    <button
+                      className="text-xs text-indigo-600 hover:underline"
+                      onClick={() => onRemove(item.id)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
+        </div>
+      );
+    }
+
+    function TransactionHistory({ transactions }) {
+      if (!transactions.length) {
+        return (
+          <p className="text-sm text-slate-500">
+            No activity yet. Every deposit, withdrawal, and subscription payment will appear here.
+          </p>
+        );
+      }
+
+      const sorted = [...transactions].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      return (
+        <div className="overflow-hidden rounded-xl border border-indigo-200 bg-slate-100">
+          <table className="min-w-full divide-y divide-slate-200 text-sm text-left text-slate-700">
+            <thead className="bg-white text-slate-900">
+              <tr>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">When</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">Details</th>
+                <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-600">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {sorted.map((tx) => (
+                <tr key={tx.id}>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">
+                    {new Date(tx.ts || now()).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-3 text-slate-900">
+                    <div className="font-medium capitalize text-slate-900">{tx.type.replace('-', ' ')}</div>
+                    <div className="text-xs text-slate-500">{tx.memo || '—'}</div>
+                  </td>
+                  <td className={`px-3 py-3 text-right font-semibold ${tx.amount >= 0 ? 'text-indigo-600' : 'text-slate-500'}`}>
+                    {tx.amount >= 0 ? '+' : ''}
+                    {fmtUSD(tx.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
+    function StudentDashboard({ user, onUpdate, onNotify }) {
+      const [amount, setAmount] = useState('');
+      const [memo, setMemo] = useState('');
+      const [incomeLabel, setIncomeLabel] = useState('');
+      const [incomeAmount, setIncomeAmount] = useState('');
+      const [expenseLabel, setExpenseLabel] = useState('');
+      const [expenseAmount, setExpenseAmount] = useState('');
+
+      const balance = useMemo(() => computeBalance(user), [user.transactions]);
+      const totalIncome = useMemo(() => totalRecurring(user.weeklyIncome), [user.weeklyIncome]);
+      const totalExpenses = useMemo(() => totalRecurring(user.weeklyExpenses), [user.weeklyExpenses]);
+      const weeklySubscription = user.subscriptionActive ? safeAmount(user.subscriptionAmount) : 0;
+      const isFrozen = !user.subscriptionActive;
+      const lastPaymentTimestamp = user.lastSubscriptionPayment || null;
+      const canPaySubscription =
+        user.subscriptionActive && (!lastPaymentTimestamp || now() - lastPaymentTimestamp >= WEEK_MS);
+      const nextEligiblePayment = lastPaymentTimestamp ? lastPaymentTimestamp + WEEK_MS : null;
+      const cannotPayNow = !canPaySubscription;
+
+      function assertActive() {
+        if (!isFrozen) return true;
+        onNotify('Your subscription is paused, so your account is frozen until the admin reactivates it.');
+        return false;
+      }
+
+      function addTransaction(change, type, defaultMemo) {
+        const delta = safeAmount(change);
+        if (delta === 0) return;
+        onUpdate((current) => ({
+          ...current,
+          transactions: [...(current.transactions || []), createTransaction({ amount: delta, memo: memo || defaultMemo, type })],
+        }));
+        setAmount('');
+        setMemo('');
+      }
+
+      function withdrawTransaction(change, type, defaultMemo) {
+        const delta = safeAmount(change);
+        if (delta === 0) return;
+        onUpdate((current) => ({
+          ...current,
+          transactions: [...(current.transactions || []), createTransaction({ amount: -Math.abs(delta), memo: memo || defaultMemo, type })],
+        }));
+        setAmount('');
+        setMemo('');
+      }
+
+      function handleDeposit() {
+        if (!assertActive()) return;
+        const delta = safeAmount(amount);
+        if (delta <= 0) return onNotify('Enter an amount greater than $0.00');
+        addTransaction(delta, 'deposit', 'Deposit');
+        onNotify('Deposit added');
+      }
+
+      function handleWithdraw() {
+        if (!assertActive()) return;
+        const delta = safeAmount(amount);
+        if (delta <= 0) return onNotify('Enter an amount greater than $0.00');
+        if (delta > balance) {
+          onNotify('This would put you below $0. Adjust the amount or deposit first.');
+          return;
+        }
+        withdrawTransaction(delta, 'withdrawal', 'Spending');
+        onNotify('Withdrawal recorded');
+      }
+
+      function addRecurring(kind) {
+        if (!assertActive()) return;
+        const label = kind === 'income' ? incomeLabel.trim() : expenseLabel.trim();
+        const rawAmount = kind === 'income' ? incomeAmount : expenseAmount;
+        const parsed = safeAmount(rawAmount);
+        if (!label) return onNotify('Give the recurring item a name.');
+        if (parsed <= 0) return onNotify('Enter an amount greater than $0.00');
+
+        onUpdate((current) => {
+          const key = kind === 'income' ? 'weeklyIncome' : 'weeklyExpenses';
+          const nextList = [...(current[key] || []), { id: uid(), label, amount: parsed }];
+          return { ...current, [key]: nextList };
+        });
+
+        if (kind === 'income') {
+          setIncomeLabel('');
+          setIncomeAmount('');
+        } else {
+          setExpenseLabel('');
+          setExpenseAmount('');
+        }
+        onNotify('Saved to weekly plan');
+      }
+
+      function removeRecurring(kind, id) {
+        if (!assertActive()) return;
+        onUpdate((current) => {
+          const key = kind === 'income' ? 'weeklyIncome' : 'weeklyExpenses';
+          return {
+            ...current,
+            [key]: (current[key] || []).filter((item) => item.id !== id),
+          };
+        });
+      }
+
+      function applyWeeklyPlan() {
+        if (!assertActive()) return;
+        const incomes = user.weeklyIncome || [];
+        const expenses = user.weeklyExpenses || [];
+        const chargeSubscription = user.subscriptionActive && safeAmount(user.subscriptionAmount) > 0;
+        if (!incomes.length && !expenses.length && !chargeSubscription) {
+          return onNotify('Add weekly income, weekly expenses, or enable your subscription before running the update.');
+        }
+        const runTimestamp = now();
+        onUpdate((current) => {
+          const transactions = [...(current.transactions || [])];
+          incomes.forEach((item) => {
+            transactions.push(
+              createTransaction({
+                amount: safeAmount(item.amount),
+                memo: `Weekly income · ${item.label}`,
+                type: 'weekly-income',
+              })
+            );
+          });
+          expenses.forEach((item) => {
+            transactions.push(
+              createTransaction({
+                amount: -Math.abs(safeAmount(item.amount)),
+                memo: `Weekly expense · ${item.label}`,
+                type: 'weekly-expense',
+              })
+            );
+          });
+          let lastSubscriptionPayment = current.lastSubscriptionPayment || null;
+          if (chargeSubscription) {
+            const subscriptionAmount = safeAmount(current.subscriptionAmount);
+            const alreadyPaid =
+              lastSubscriptionPayment && runTimestamp - lastSubscriptionPayment < WEEK_MS;
+            if (!alreadyPaid) {
+              transactions.push(
+                createTransaction({
+                  amount: -Math.abs(subscriptionAmount),
+                  memo: 'Weekly subscription fee',
+                  type: 'subscription',
+                })
+              );
+              lastSubscriptionPayment = runTimestamp;
+            }
+          }
+          return {
+            ...current,
+            transactions,
+            lastWeeklyRun: runTimestamp,
+            lastSubscriptionPayment,
+          };
+        });
+        onNotify('Weekly plan applied to your balance');
+      }
+
+      function paySubscriptionNow() {
+        if (!assertActive()) return;
+        const timestamp = now();
+        const amount = safeAmount(user.subscriptionAmount);
+        if (amount <= 0) {
+          return onNotify('Your subscription amount is not set. Ask the admin for help.');
+        }
+        if (user.lastSubscriptionPayment && timestamp - user.lastSubscriptionPayment < WEEK_MS) {
+          return onNotify('You already paid within the last 7 days. Try again later.');
+        }
+        onUpdate((current) => ({
+          ...current,
+          transactions: [
+            ...(current.transactions || []),
+            createTransaction({ amount: -Math.abs(amount), memo: 'Subscription payment', type: 'subscription' }),
+          ],
+          lastSubscriptionPayment: timestamp,
+        }));
+        onNotify('Subscription payment recorded');
+      }
+
+      return (
+        <div className="pt-10 sm:pt-12">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <section className="space-y-6 lg:col-span-2">
+              <div className="space-y-4 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-slate-900">Hi {user.name || 'there'}!</h2>
+                  <p className="text-sm text-slate-600">
+                    Current balance: <strong className="text-indigo-600">{fmtUSD(balance)}</strong>
+                  </p>
+                  <p className="text-xs text-slate-500">Every amount you add or remove is saved privately to this device.</p>
+                  {isFrozen && (
+                    <p className="mt-3 rounded-xl border border-indigo-300 bg-indigo-600/10 px-4 py-3 text-xs text-indigo-600">
+                      Your subscription is paused, so this account is read-only until the admin reactivates it.
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-900" htmlFor="amount-input">Amount</label>
+                    <input
+                      id="amount-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isFrozen}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-900" htmlFor="memo-input">Memo</label>
+                    <input
+                      id="memo-input"
+                      type="text"
+                      value={memo}
+                      onChange={(event) => setMemo(event.target.value)}
+                      className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isFrozen}
+                      placeholder="What is this for?"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleDeposit}
+                    disabled={isFrozen}
+                  >
+                    Add money
+                  </button>
+                  <button
+                    className="rounded-full border border-indigo-200 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={handleWithdraw}
+                    disabled={isFrozen}
+                  >
+                    Spend money
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-6 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900">Weekly plan</h3>
+                  <p className="text-sm text-slate-600">
+                    Track regular income like allowances and expenses like snacks or clubs. Run the weekly update to copy them into
+                    your history automatically.
+                  </p>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-900" htmlFor="income-label">Add weekly income</label>
+                      <input
+                        id="income-label"
+                        type="text"
+                        value={incomeLabel}
+                        onChange={(event) => setIncomeLabel(event.target.value)}
+                        className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Example: Allowance"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={incomeAmount}
+                        onChange={(event) => setIncomeAmount(event.target.value)}
+                        className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Amount"
+                      />
+                    </div>
+                    <button
+                      className="w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={addWeeklyIncome}
+                      disabled={isFrozen}
+                    >
+                      Add income
+                    </button>
+                    <RecurringList
+                      title="Weekly income"
+                      emptyHint="No repeating income yet. Add your allowance, job, or other regular earnings."
+                      items={user.weeklyIncome}
+                      onRemove={isFrozen ? null : removeWeeklyIncome}
+                      disabled={isFrozen}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-900" htmlFor="expense-label">Add weekly expense</label>
+                      <input
+                        id="expense-label"
+                        type="text"
+                        value={expenseLabel}
+                        onChange={(event) => setExpenseLabel(event.target.value)}
+                        className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Example: Snacks"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={expenseAmount}
+                        onChange={(event) => setExpenseAmount(event.target.value)}
+                        className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        disabled={isFrozen}
+                        placeholder="Amount"
+                      />
+                    </div>
+                    <button
+                      className="w-full rounded-full border border-indigo-200 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={addWeeklyExpense}
+                      disabled={isFrozen}
+                    >
+                      Add expense
+                    </button>
+                    <RecurringList
+                      title="Weekly expenses"
+                      emptyHint="No repeating expenses yet. Add snacks, clubs, or anything you pay for regularly."
+                      items={user.weeklyExpenses}
+                      onRemove={isFrozen ? null : removeWeeklyExpense}
+                      disabled={isFrozen}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-slate-100 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Weekly summary</p>
+                    <p className="text-xs text-slate-500">
+                      Income: {fmtUSD(totalRecurring(user.weeklyIncome))} | Expenses: {fmtUSD(totalRecurring(user.weeklyExpenses))}
+                    </p>
+                  </div>
+                  <button
+                    className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={runWeeklyPlan}
+                    disabled={isFrozen}
+                  >
+                    Apply this week's plan
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div className="space-y-4 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-slate-900">Subscription</h3>
+                  <p className="text-sm text-slate-600">
+                    Keep your subscription active to stay in control. You can only pay once every 7 days.
+                  </p>
+                  {!user.subscriptionActive && (
+                    <p className="rounded-xl border border-indigo-300 bg-indigo-600/10 px-4 py-3 text-xs text-indigo-600">
+                      Your subscription is paused. Reach out to the admin to reactivate it.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2 text-sm text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Status</span>
+                    <span className="font-semibold text-slate-900">{user.subscriptionActive ? 'Active' : 'Paused'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Weekly cost</span>
+                    <span className="font-semibold text-indigo-600">{fmtUSD(user.subscriptionAmount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Next payment</span>
+                    <span className="font-semibold text-slate-900">{nextEligiblePayment ? new Date(nextEligiblePayment).toLocaleDateString() : 'Anytime'}</span>
+                  </div>
+                </div>
+                <button
+                  className="w-full rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={paySubscriptionNow}
+                  disabled={isFrozen || cannotPayNow}
+                >
+                  Pay subscription now
+                </button>
+                {cannotPayNow && (
+                  <p className="text-xs text-slate-500">
+                    You can pay again once seven full days have passed
+                    {nextEligiblePayment ? ` (next payment window opens on ${new Date(nextEligiblePayment).toLocaleDateString()})` : ''}.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-4 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-slate-900">Notes</h3>
+                  <span className="text-xs text-slate-500">Private to you</span>
+                </div>
+                <textarea
+                  className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  rows="5"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  onBlur={handleNotesBlur}
+                  placeholder="Keep track of your goals, reminders, or anything that helps you stay organized."
+                />
+              </div>
+            </section>
+          </div>
+
+          <div className="mt-10 space-y-3">
+            <h3 className="text-lg font-semibold text-slate-900">Recent activity</h3>
+            <TransactionHistory transactions={user.transactions} />
+          </div>
+        </div>
+      );
+    }
+
+    function AdminUserCard({ user, onToggleSubscription, onChangeSubscriptionAmount, onAdjustBalance, onChargeSubscription, onRemoveUser }) {
+      const [amount, setAmount] = useState('');
+      const [note, setNote] = useState('');
+      const [subscription, setSubscription] = useState(user.subscriptionAmount);
+
+      useEffect(() => {
+        setSubscription(user.subscriptionAmount);
+      }, [user.subscriptionAmount]);
+
+      const balance = useMemo(() => computeBalance(user), [user.transactions]);
+      const totalIncome = useMemo(() => totalRecurring(user.weeklyIncome), [user.weeklyIncome]);
+      const totalExpenses = useMemo(() => totalRecurring(user.weeklyExpenses), [user.weeklyExpenses]);
+      const projectedNet = totalIncome - totalExpenses - (user.subscriptionActive ? safeAmount(user.subscriptionAmount) : 0);
+      const lastPayment = user.lastSubscriptionPayment ? new Date(user.lastSubscriptionPayment).toLocaleString() : 'Never';
+
+      return (
+        <li className="space-y-5 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-lg font-semibold text-slate-900">{user.name || user.email}</h3>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
+                  user.subscriptionActive
+                    ? 'border border-indigo-400 bg-indigo-600 text-white'
+                    : 'border border-indigo-200 text-slate-600'
+                }`}
+              >
+                {user.subscriptionActive ? 'Subscription active' : 'Subscription paused'}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600">{user.email}</p>
+            <p className="text-xs text-slate-500">{user.classNumber ? `Classroom: ${user.classNumber}` : 'No class assigned'}</p>
+            <p className="text-sm text-slate-600">
+              Balance: <strong className="text-slate-900">{fmtUSD(balance)}</strong>
+            </p>
+            <p className="text-xs text-slate-500">Last subscription payment: {lastPayment}</p>
+            <p className="text-xs text-slate-500">Projected weekly change: {fmtUSD(projectedNet)}</p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2 text-sm text-slate-600">
+              <h4 className="font-semibold text-slate-900">Weekly income</h4>
+              <ul className="space-y-1">
+                {(user.weeklyIncome || []).map((item) => (
+                  <li key={item.id} className="flex justify-between">
+                    <span>{item.label}</span>
+                    <span>{fmtUSD(item.amount)}</span>
+                  </li>
+                ))}
+                {(user.weeklyIncome || []).length === 0 && <li className="text-slate-400">None</li>}
+              </ul>
+            </div>
+            <div className="space-y-2 text-sm text-slate-600">
+              <h4 className="font-semibold text-slate-900">Weekly expenses</h4>
+              <ul className="space-y-1">
+                {(user.weeklyExpenses || []).map((item) => (
+                  <li key={item.id} className="flex justify-between">
+                    <span>{item.label}</span>
+                    <span>{fmtUSD(item.amount)}</span>
+                  </li>
+                ))}
+                {(user.weeklyExpenses || []).length === 0 && <li className="text-slate-400">None</li>}
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-900">Subscription amount</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={subscription}
+                  onChange={(event) => setSubscription(event.target.value)}
+                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                />
+                <button
+                  className="rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-indigo-500"
+                  onClick={() => onChangeSubscriptionAmount(user.id, subscription)}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-900">Quick actions</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-indigo-500"
+                  onClick={() => onToggleSubscription(user.id, true)}
+                >
+                  Activate
+                </button>
+                <button
+                  className="rounded-full border border-indigo-200 px-4 py-2 text-xs font-semibold text-slate-900 transition hover:border-indigo-300"
+                  onClick={() => onToggleSubscription(user.id, false)}
+                >
+                  Pause
+                </button>
+                <button
+                  className="rounded-full border border-indigo-300 px-4 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-600/10"
+                  onClick={() => onChargeSubscription(user.id)}
+                >
+                  Charge now
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-900">Post an adjustment</label>
+            <div className="grid gap-2 md:grid-cols-[1fr_2fr_auto]">
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                placeholder="Amount"
+              />
+              <input
+                type="text"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                placeholder="Reason"
+              />
+              <button
+                className="rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-indigo-500"
+                onClick={() => {
+                  const value = safeAmount(amount);
+                  if (value === 0) return;
+                  onAdjustBalance(user.id, value, note || 'Admin adjustment');
+                  setAmount('');
+                  setNote('');
+                }}
+              >
+                Post
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-slate-500">Created {new Date(user.createdAt || now()).toLocaleDateString()}</span>
+            <button
+              className="text-xs text-slate-500 transition hover:text-indigo-600"
+              onClick={() => {
+                if (window.confirm('Delete this account? All locally stored data will be removed.')) {
+                  onRemoveUser(user.id);
+                }
+              }}
+            >
+              Delete account
+            </button>
+          </div>
+        </li>
+      );
+    }
+
+    function AdminDashboard({ users, onToggleSubscription, onChangeSubscriptionAmount, onAdjustBalance, onChargeSubscription, onRemoveUser }) {
+      const [query, setQuery] = useState('');
+      const [selectedClass, setSelectedClass] = useState('');
+
+      const classes = useMemo(() => {
+        const counts = new Map();
+        users.forEach((user) => {
+          const value = (user.classNumber || '').trim();
+          if (!value) return;
+          counts.set(value, (counts.get(value) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: 'base' }));
+      }, [users]);
+
+      useEffect(() => {
+        if (!selectedClass) return;
+        const exists = classes.some((item) => item.value.toLowerCase() === selectedClass.trim().toLowerCase());
+        if (!exists) {
+          setSelectedClass('');
+        }
+      }, [classes, selectedClass]);
+
+      const filtered = useMemo(() => {
+        const term = query.trim().toLowerCase();
+        const normalizedSelection = selectedClass.trim().toLowerCase();
+        return users.filter((user) => {
+          const userClass = (user.classNumber || '').trim();
+          const matchesClass = !normalizedSelection || userClass.toLowerCase() === normalizedSelection;
+          if (!matchesClass) return false;
+          if (!term) return true;
+          return `${user.name} ${user.email} ${userClass}`.toLowerCase().includes(term);
+        });
+      }, [users, query, selectedClass]);
+
+      return (
+        <section className="space-y-6 rounded-3xl border border-indigo-200 bg-slate-100 p-6 shadow-lg">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Admin control center</h2>
+              <p className="text-sm text-slate-600">
+                Review every student account, update subscription status, and help with balances.
+              </p>
+            </div>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name, email, or class"
+              className="w-full rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 sm:w-64"
+            />
+          </div>
+
+          {classes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedClass('')}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  selectedClass === ''
+                    ? 'border-indigo-300 bg-indigo-600/10 text-indigo-600'
+                    : 'border-indigo-200 text-slate-600 hover:border-indigo-300'
+                }`}
+              >
+                All classes
+              </button>
+              {classes.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setSelectedClass(item.value)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    selectedClass.toLowerCase() === item.value.toLowerCase()
+                      ? 'border-indigo-300 bg-indigo-600/10 text-indigo-600'
+                      : 'border-indigo-200 text-slate-600 hover:border-indigo-300'
+                  }`}
+                >
+                  Class {item.value}
+                  <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                    {item.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <ul className="space-y-5">
+            {filtered.map((user) => (
+              <AdminUserCard
+                key={user.id}
+                user={user}
+                onToggleSubscription={onToggleSubscription}
+                onChangeSubscriptionAmount={onChangeSubscriptionAmount}
+                onAdjustBalance={onAdjustBalance}
+                onChargeSubscription={onChargeSubscription}
+                onRemoveUser={onRemoveUser}
+              />
+            ))}
+            {filtered.length === 0 && <li className="text-sm text-slate-500">No matching accounts.</li>}
+          </ul>
+        </section>
+      );
+    }
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useCallback } = React;
+
+    function App() {
+      const [users, setUsersState] = useState(loadUsers);
+      const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem(CURRENT_USER_KEY));
+      const [toast, setToast] = useState(null);
+
+      const setUsers = useCallback((updater) => {
+        setUsersState((prev) => {
+          const nextValue = typeof updater === 'function' ? updater(prev) : updater;
+          if (nextValue === prev) {
+            return prev;
+          }
+
+          const nextArray = Array.isArray(nextValue) ? nextValue : prev;
+          if (nextArray === prev) {
+            return prev;
+          }
+
+          const normalizedForStorage = nextArray.map(normalizeUser);
+          saveUsers(normalizedForStorage);
+          return nextArray;
+        });
+      }, []);
+
+      useEffect(() => {
+        if (currentUserId) {
+          localStorage.setItem(CURRENT_USER_KEY, currentUserId);
+        } else {
+          localStorage.removeItem(CURRENT_USER_KEY);
+        }
+      }, [currentUserId]);
+
+      useEffect(() => {
+        function handleStorage(event) {
+          if (event.key === DB_KEY) {
+            setUsersState(loadUsers());
+          }
+          if (event.key === CURRENT_USER_KEY) {
+            setCurrentUserId(event.newValue || null);
+          }
+        }
+
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+      }, [setUsersState, setCurrentUserId]);
+
+      const currentUser = useMemo(
+        () => users.find((user) => user.id === currentUserId) || null,
+        [users, currentUserId]
+      );
+
+      const isAdmin = currentUser && currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+      function notify(message) {
+        setToast(message);
+      }
+
+      function handleAuthenticate({ email, name, password, classNumber }) {
+        const trimmedEmail = (email || '').trim().toLowerCase();
+        if (!trimmedEmail || !trimmedEmail.includes('@')) {
+          return notify('Enter a valid email address.');
+        }
+        const trimmedPassword = (password || '').trim();
+        if (trimmedPassword.length < 4) {
+          return notify('Password must be at least 4 characters.');
+        }
+        const trimmedClass = (classNumber || '').trim();
+
+        setUsers((prev) => {
+          const existing = prev.find((user) => user.email.toLowerCase() === trimmedEmail);
+          if (existing) {
+            if (existing.password && existing.password !== trimmedPassword) {
+              notify('Incorrect password for this account.');
+              return prev;
+            }
+            let nextUsers = prev;
+            let message = `Welcome back, ${existing.name || existing.email}!`;
+            if (trimmedClass && trimmedClass !== (existing.classNumber || '')) {
+              nextUsers = prev.map((user) =>
+                user.id === existing.id
+                  ? normalizeUser({ ...user, classNumber: trimmedClass })
+                  : user
+              );
+              message = `${message} Class ${trimmedClass} saved.`;
+            }
+            setCurrentUserId(existing.id);
+            notify(message);
+            return nextUsers;
+          }
+
+          if (!name || !name.trim()) {
+            notify('Please tell us your name so we can create your account.');
+            return prev;
+          }
+
+          const newUser = normalizeUser({
+            id: uid(),
+            name: name.trim(),
+            email: trimmedEmail,
+            password: trimmedPassword,
+            classNumber: trimmedClass,
+            subscriptionActive: true,
+            subscriptionAmount: DEFAULT_SUBSCRIPTION_AMOUNT,
+            transactions: [],
+            weeklyIncome: [],
+            weeklyExpenses: [],
+          });
+
+          const updated = [...prev, newUser];
+          setCurrentUserId(newUser.id);
+          notify('Account created. Start tracking your money!');
+          return updated;
+        });
+      }
+
+      function logout() {
+        setCurrentUserId(null);
+        notify('Logged out safely');
+      }
+
+      function updateUser(id, updater) {
+        setUsers((prev) =>
+          prev.map((user) => {
+            if (user.id !== id) return user;
+            const next = typeof updater === 'function' ? updater(user) : updater;
+            return normalizeUser({ ...user, ...next });
+          })
+        );
+      }
+
+      function removeUser(id) {
+        setUsers((prev) => prev.filter((user) => user.id !== id));
+        if (currentUserId === id) {
+          setCurrentUserId(null);
+        }
+        notify('Account deleted');
+      }
+
+      function toggleSubscription(id, active) {
+        updateUser(id, (user) => ({
+          subscriptionActive: Boolean(active),
+        }));
+        notify(active ? 'Subscription activated' : 'Subscription paused');
+      }
+
+      function changeSubscriptionAmount(id, value) {
+        const parsed = safeAmount(value);
+        updateUser(id, () => ({ subscriptionAmount: parsed }));
+        notify('Subscription amount saved');
+      }
+
+      function adjustBalance(id, amount, memo) {
+        const delta = safeAmount(amount);
+        if (delta === 0) return;
+        updateUser(id, (user) => ({
+          transactions: [
+            ...(user.transactions || []),
+            createTransaction({ amount: delta, memo, type: 'admin-adjustment' }),
+          ],
+        }));
+        notify('Adjustment posted');
+      }
+
+      function chargeSubscription(id) {
+        const target = users.find((user) => user.id === id);
+        if (!target) return;
+        if (!target.subscriptionActive) {
+          notify('This subscription is paused. Activate it before charging.');
+          return;
+        }
+        const timestamp = now();
+        const amount = safeAmount(target.subscriptionAmount || DEFAULT_SUBSCRIPTION_AMOUNT);
+        if (amount <= 0) {
+          notify('Set a subscription amount greater than $0 before charging.');
+          return;
+        }
+        if (target.lastSubscriptionPayment && timestamp - target.lastSubscriptionPayment < WEEK_MS) {
+          notify('This account already paid within the last 7 days.');
+          return;
+        }
+        updateUser(id, (user) => ({
+          transactions: [
+            ...(user.transactions || []),
+            createTransaction({ amount: -Math.abs(amount), memo: 'Subscription fee', type: 'subscription' }),
+          ],
+          lastSubscriptionPayment: timestamp,
+        }));
+        notify('Subscription charge recorded');
+      }
+
+      const pageClasses = 'bg-gradient-to-br from-slate-100 via-white to-slate-50 text-slate-900';
+
+      return (
+        <div className={`min-h-screen ${pageClasses}`}>
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
+            <Header
+              onLogout={currentUser ? logout : null}
+              isAdmin={isAdmin}
+              userName={currentUser ? currentUser.name || currentUser.email : null}
+            />
+
+            {!currentUser && <LoginCard onAuthenticate={handleAuthenticate} />}
+
+            {currentUser && !isAdmin && (
+              <StudentDashboard
+                user={currentUser}
+                onUpdate={(updater) => updateUser(currentUser.id, updater)}
+                onNotify={notify}
+              />
+            )}
+
+            {currentUser && isAdmin && (
+              <AdminDashboard
+                users={users}
+                onToggleSubscription={toggleSubscription}
+                onChangeSubscriptionAmount={changeSubscriptionAmount}
+                onAdjustBalance={adjustBalance}
+                onChargeSubscription={chargeSubscription}
+                onRemoveUser={removeUser}
+              />
+            )}
+          </div>
+          <Toast message={toast} onDismiss={() => setToast(null)} />
         </div>
       );
     }
@@ -246,4 +1257,3 @@
   </script>
 </body>
 </html>
-
