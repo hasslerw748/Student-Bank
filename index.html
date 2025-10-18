@@ -352,6 +352,11 @@
       const [incomeAmount, setIncomeAmount] = useState('');
       const [expenseLabel, setExpenseLabel] = useState('');
       const [expenseAmount, setExpenseAmount] = useState('');
+      const [notes, setNotes] = useState(user.notes || '');
+
+      useEffect(() => {
+        setNotes(user.notes || '');
+      }, [user.notes]);
 
       const balance = useMemo(() => computeBalance(user), [user.transactions]);
       const totalIncome = useMemo(() => totalRecurring(user.weeklyIncome), [user.weeklyIncome]);
@@ -521,6 +526,24 @@
           lastSubscriptionPayment: timestamp,
         }));
         onNotify('Subscription payment recorded');
+      }
+
+      function handleNotesBlur() {
+        if (!assertActive()) {
+          setNotes(user.notes || '');
+          return;
+        }
+
+        const nextNotes = notes || '';
+        if ((user.notes || '') === nextNotes) {
+          return;
+        }
+        onUpdate((current) => {
+          return {
+            ...current,
+            notes: nextNotes,
+          };
+        });
       }
 
       return (
@@ -738,11 +761,12 @@
                   <span className="text-xs text-slate-500">Private to you</span>
                 </div>
                 <textarea
-                  className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                  className="w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-60"
                   rows="5"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   onBlur={handleNotesBlur}
+                  disabled={isFrozen}
                   placeholder="Keep track of your goals, reminders, or anything that helps you stay organized."
                 />
               </div>
