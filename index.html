@@ -492,8 +492,6 @@ function Transactions({ state, setState }){
               <label for="account-name">Account name</label>
               <input id="account-name" name="name" placeholder="Travel Fund" required />
             </div>
-          ))}
-          {list.length === 0 && <div className="opacity-70">No transactions yet.</div>}
             <div>
               <label for="account-currency">Currency</label>
               <select id="account-currency" name="currency">
@@ -502,6 +500,8 @@ function Transactions({ state, setState }){
                 <option value="GBP">GBP</option>
               </select>
             </div>
+          ))}
+          {list.length === 0 && <div className="opacity-70">No transactions yet.</div>}
             <button type="submit" class="primary">Add Account</button>
           </form>
         </div>
@@ -624,8 +624,6 @@ function Recurring({ state, setState }){
               <label for="recurring-account">Account</label>
               <select id="recurring-account" required></select>
             </div>
-          ))}
-          {state.recurring.length === 0 && <div className="opacity-70">No recurring rules.</div>}
             <div>
               <label for="recurring-name">Name</label>
               <input id="recurring-name" placeholder="Spotify" required />
@@ -642,6 +640,8 @@ function Recurring({ state, setState }){
                 <option value="quarterly">Quarterly</option>
               </select>
             </div>
+          ))}
+          {state.recurring.length === 0 && <div className="opacity-70">No recurring rules.</div>}
             <button type="submit" class="primary">Save Plan</button>
           </form>
         </div>
@@ -989,11 +989,15 @@ export default function TeenBankApp(){
         }
 
         addRecurring({ accountId, name, amountMajor, frequency }) {
+          const amountMinor = Math.round(Number(amountMajor) * 100);
+          if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+            throw new Error("Amount must be a positive number");
+          }
           const payment = new RecurringPayment({
             id: this.nextId("rec"),
             accountId,
             name,
-            amountMinor: Math.round(Number(amountMajor) * 100),
+            amountMinor,
             frequency,
             nextRun: this.calculateNextRun(frequency),
           });
@@ -1012,6 +1016,9 @@ export default function TeenBankApp(){
         setBudget(category, amountMajor) {
           const amountMinor = Math.round(Number(amountMajor) * 100);
           if (!category.trim()) throw new Error("Category is required");
+          if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+            throw new Error("Budget must be a positive number");
+          }
           this.budgets.set(category.trim(), amountMinor);
         }
 
@@ -1132,17 +1139,30 @@ export default function TeenBankApp(){
         }
       }
 
+      function showMessage(container, text) {
+        const message = document.createElement("p");
+        message.className = "muted";
+        message.textContent = text;
+        container.appendChild(message);
+      }
+
       function renderTransactions() {
         const container = document.getElementById("transaction-list");
         container.innerHTML = "";
         const activeAccountId = document.getElementById("transaction-account").value || app.accounts[0]?.id;
         if (!activeAccountId) {
-          container.innerHTML = "<p class=\"muted\">Create an account to record transactions.</p>";
+          showMessage(container, "Create an account to record transactions.");
           return;
         }
+        const activeAccount = app.getAccount(activeAccountId);
+        if (!activeAccount) {
+          showMessage(container, "Selected account could not be found.");
+          return;
+        }
+        const currency = activeAccount.currency;
         const transactions = app.getTransactionsForAccount(activeAccountId).slice(0, 6);
         if (transactions.length === 0) {
-          container.innerHTML = "<p class=\"muted\">No activity yet. Add a transaction to get started.</p>";
+          showMessage(container, "No activity yet. Add a transaction to get started.");
           return;
         }
         transactions.forEach((transaction) => {
@@ -1156,7 +1176,7 @@ export default function TeenBankApp(){
           const title = document.createElement("strong");
           title.textContent = transaction.description;
           const amount = document.createElement("span");
-          amount.textContent = `${transaction.signedAmount >= 0 ? "+" : "-"}${formatCurrency(Math.abs(transaction.amountMinor))}`;
+          amount.textContent = `${transaction.signedAmount >= 0 ? "+" : "-"}${formatCurrency(Math.abs(transaction.amountMinor), currency)}`;
           amount.className = transaction.signedAmount >= 0 ? "positive" : "negative";
           top.append(title, amount);
           const meta = document.createElement("div");
@@ -1172,7 +1192,7 @@ export default function TeenBankApp(){
         const container = document.getElementById("recurring-list");
         container.innerHTML = "";
         if (app.recurring.length === 0) {
-          container.innerHTML = "<p class=\"muted\">No recurring plans yet.</p>";
+          showMessage(container, "No recurring plans yet.");
           return;
         }
         app.recurring.forEach((payment) => {
@@ -1180,12 +1200,13 @@ export default function TeenBankApp(){
           item.className = "card";
           item.style.padding = "0.9rem 1.1rem";
           const title = document.createElement("strong");
-          title.textContent = payment.name;
+          const account = app.getAccount(payment.accountId);
+          title.textContent = account ? `${payment.name} · ${account.name}` : `${payment.name} · Unknown account`;
           const subtitle = document.createElement("div");
           subtitle.className = "muted";
           subtitle.style.fontSize = "0.85rem";
-          const account = app.getAccount(payment.accountId);
-          subtitle.textContent = `${formatCurrency(payment.amountMinor, account.currency)} · ${payment.frequency} · next ${formatDate(payment.nextRun)}`;
+          const currency = account?.currency ?? "USD";
+          subtitle.textContent = `${formatCurrency(payment.amountMinor, currency)} · ${payment.frequency} · next ${formatDate(payment.nextRun)}`;
           item.append(title, subtitle);
           container.appendChild(item);
         });
@@ -1196,7 +1217,7 @@ export default function TeenBankApp(){
         container.innerHTML = "";
         const spend = app.getSpendByCategory();
         if (app.budgets.size === 0) {
-          container.innerHTML = "<p class=\"muted\">Set a budget to start tracking.</p>";
+          showMessage(container, "Set a budget to start tracking.");
           return;
         }
         app.budgets.forEach((limit, category) => {
@@ -1238,7 +1259,12 @@ export default function TeenBankApp(){
         const container = document.getElementById("statement-output");
         container.innerHTML = "";
         if (!accountId || !monthValue) {
-          container.innerHTML = "<p class=\"muted\">Choose an account and month to see activity.</p>";
+          showMessage(container, "Choose an account and month to see activity.");
+          return;
+        }
+        const account = app.getAccount(accountId);
+        if (!account) {
+          showMessage(container, "Selected account could not be found.");
           return;
         }
         const [year, month] = monthValue.split("-").map(Number);
@@ -1247,22 +1273,25 @@ export default function TeenBankApp(){
         headline.className = "muted";
         headline.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`;
         const openingRow = document.createElement("p");
-        openingRow.innerHTML = `<strong>Opening:</strong> ${formatCurrency(opening)}`;
+        const openingLabel = document.createElement("strong");
+        openingLabel.textContent = "Opening:";
+        openingRow.append(openingLabel, document.createTextNode(` ${formatCurrency(opening, account.currency)}`));
         const closingRow = document.createElement("p");
-        closingRow.innerHTML = `<strong>Closing:</strong> ${formatCurrency(closing)}`;
+        const closingLabel = document.createElement("strong");
+        closingLabel.textContent = "Closing:";
+        closingRow.append(closingLabel, document.createTextNode(` ${formatCurrency(closing, account.currency)}`));
         container.append(headline, openingRow, closingRow);
         if (activity.length === 0) {
-          const empty = document.createElement("p");
-          empty.className = "muted";
-          empty.textContent = "No transactions this period.";
-          container.appendChild(empty);
+          showMessage(container, "No transactions this period.");
           return;
         }
         const list = document.createElement("ul");
         list.className = "list";
         activity.forEach((transaction) => {
           const item = document.createElement("li");
-          const amount = transaction.signedAmount >= 0 ? `+${formatCurrency(transaction.amountMinor)}` : `-${formatCurrency(transaction.amountMinor)}`;
+          const amount = transaction.signedAmount >= 0
+            ? `+${formatCurrency(transaction.amountMinor, account.currency)}`
+            : `-${formatCurrency(transaction.amountMinor, account.currency)}`;
           item.textContent = `${formatDate(transaction.createdAt)} · ${transaction.description} (${transaction.category || "Uncategorized"}) — ${amount}`;
           list.appendChild(item);
         });
@@ -1313,12 +1342,17 @@ export default function TeenBankApp(){
       document.getElementById("recurring-form").addEventListener("submit", (event) => {
         event.preventDefault();
         const data = new FormData(event.target);
-        app.addRecurring({
-          accountId: data.get("account"),
-          name: data.get("name"),
-          amountMajor: data.get("amount"),
-          frequency: data.get("frequency"),
-        });
+        try {
+          app.addRecurring({
+            accountId: data.get("account"),
+            name: data.get("name"),
+            amountMajor: data.get("amount"),
+            frequency: data.get("frequency"),
+          });
+        } catch (error) {
+          alert(error.message);
+          return;
+        }
         event.target.reset();
         renderRecurring();
       });
