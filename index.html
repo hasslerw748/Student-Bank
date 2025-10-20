@@ -224,7 +224,7 @@ function Transactions({ state, setState }){
   );
 }
 
-function Classes({ state, setState }){
+function StudentJoinCard({ state, setState, onJoined }){
   const [studentName, setStudentName] = useState("");
   const [classCode, setClassCode] = useState("");
   const [status, setStatus] = useState(null);
@@ -246,13 +246,17 @@ function Classes({ state, setState }){
       cls.students.push({ id: uid("student"), name, joinedAt: new Date() });
     }
     setState(copy);
-    setStatus({ type: "success", message: `Joined ${cls.name}` });
+    const message = `Joined ${cls.name}`;
+    setStatus({ type: "success", message });
+    if (onJoined) {
+      onJoined({ name, classId: cls.id, className: cls.name });
+    }
     setStudentName("");
     setClassCode("");
   };
 
   return (
-    <Card title="Join Your Class">
+    <Card title="Student Join">
       <p className="text-sm opacity-80 mb-3">Use the code from your teacher to join their TeenBank classroom.</p>
       <Field label="Your Name">
         <input value={studentName} onChange={e=>setStudentName(e.target.value)} placeholder="Jordan" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/>
@@ -325,6 +329,40 @@ function AdminPanel({ state, setState }){
             </div>
           ))}
           {classes.length === 0 && <div className="opacity-70">No classes created.</div>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function LoginScreen({ state, setState, onStudentEnter, onAdminEnter }){
+  const [adminCode, setAdminCode] = useState("");
+  const [adminStatus, setAdminStatus] = useState(null);
+
+  const accessAdmin = () => {
+    const code = adminCode.trim();
+    if (code.toLowerCase() === "admin") {
+      setAdminStatus({ type: "success", message: "Welcome back!" });
+      setAdminCode("");
+      onAdminEnter();
+    } else {
+      setAdminStatus({ type: "error", message: "Incorrect admin code." });
+    }
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4">
+      <StudentJoinCard state={state} setState={setState} onJoined={onStudentEnter} />
+      <Card title="Admin Access">
+        <p className="text-sm opacity-80 mb-3">Enter the admin access code to manage classes and view rosters.</p>
+        <Field label="Access Code">
+          <input value={adminCode} onChange={e=>setAdminCode(e.target.value)} placeholder="admin" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/>
+        </Field>
+        <div className="flex gap-2 items-center">
+          <Button onClick={accessAdmin}>Enter Admin</Button>
+          {adminStatus && (
+            <span className={`text-xs ${adminStatus.type === "error" ? "text-red-300" : "text-green-300"}`}>{adminStatus.message}</span>
+          )}
         </div>
       </Card>
     </div>
@@ -532,8 +570,7 @@ function Statements({ state }){
 }
 
 // -------------------- App Shell --------------------
-function Tabs({ tab, setTab }){
-  const items = ["Onboarding","Accounts","Transactions","Classes","Recurring","Budgets","Statements","Admin"];
+function Tabs({ tab, setTab, items }){
   return (
     <div className="flex flex-wrap gap-2 mb-4">
       {items.map(name => (
@@ -546,27 +583,66 @@ function Tabs({ tab, setTab }){
 export default function TeenBankApp(){
   const [state, setState] = useState(initialState);
   const [tab, setTab] = useState("Onboarding");
+  const [session, setSession] = useState({ role: "login", name: "", classId: null, className: "" });
+
+  const enterStudent = ({ name, classId, className }) => {
+    setSession({ role: "student", name, classId, className });
+    setTab("Onboarding");
+  };
+
+  const enterAdmin = () => {
+    setSession({ role: "admin", name: "Administrator", classId: null, className: "" });
+    setTab("Admin");
+  };
+
+  const logout = () => {
+    setSession({ role: "login", name: "", classId: null, className: "" });
+    setTab("Onboarding");
+  };
+
+  const tabItems = session.role === "admin"
+    ? ["Admin"]
+    : ["Onboarding","Accounts","Transactions","Recurring","Budgets","Statements"];
+
+  const showingLogin = session.role === "login";
 
   return (
     <div className="min-h-screen text-white p-4 md:p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="max-w-5xl mx-auto">
-        <header className="mb-6 flex items-center justify-between">
+        <header className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">TeenBank</h1>
             <p className="text-sm opacity-80">Very base website model · in‑memory</p>
           </div>
+          {session.role !== "login" && (
+            <div className="flex items-center gap-3 text-sm">
+              <div className="opacity-80">
+                {session.role === "admin" ? (
+                  <span>Logged in as Admin</span>
+                ) : (
+                  <span>Student: {session.name}{session.className ? ` · ${session.className}` : ""}</span>
+                )}
+              </div>
+              <Button onClick={logout} className="bg-white/15">Log out</Button>
+            </div>
+          )}
         </header>
 
-        <Tabs tab={tab} setTab={setTab} />
+        {showingLogin ? (
+          <LoginScreen state={state} setState={setState} onStudentEnter={enterStudent} onAdminEnter={enterAdmin} />
+        ) : (
+          <>
+            <Tabs tab={tab} setTab={setTab} items={tabItems} />
 
-        {tab === "Onboarding" && <Onboarding state={state} setState={setState} />}
-        {tab === "Accounts" && <Accounts state={state} setState={setState} />}
-        {tab === "Transactions" && <Transactions state={state} setState={setState} />}
-        {tab === "Classes" && <Classes state={state} setState={setState} />}
-        {tab === "Recurring" && <Recurring state={state} setState={setState} />}
-        {tab === "Budgets" && <Budgets state={state} setState={setState} />}
-        {tab === "Statements" && <Statements state={state} />}
-        {tab === "Admin" && <AdminPanel state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Onboarding" && <Onboarding state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Accounts" && <Accounts state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Transactions" && <Transactions state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Recurring" && <Recurring state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Budgets" && <Budgets state={state} setState={setState} />}
+            {session.role !== "admin" && tab === "Statements" && <Statements state={state} />}
+            {session.role === "admin" && tab === "Admin" && <AdminPanel state={state} setState={setState} />}
+          </>
+        )}
 
         <footer className="mt-8 text-xs opacity-70">© {new Date().getFullYear()} TeenBank (prototype)</footer>
       </div>
