@@ -1,1396 +1,598 @@
-import React, { useMemo, useState } from "react";
-
-// TeenBank – very base website (React, plain JS)
-// - In‑memory data only (no backend)
-// - Flows: Onboarding, Accounts, Transactions, Recurring, Budgets, Statements
-// - No timing, no auth, no leaderboard
-// - Minimal but clean UI using Tailwind classes (provided by the preview runtime)
-
-// -------------------- In‑Memory Store --------------------
-let __id = 0;
-const uid = (p = "id") => `${p}_${++__id}`;
-const toMonthKey = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-
-const initialUser = {
-  id: uid("user"),
-  name: "Will Hassler",
-  email: "will@example.com",
-  onboarding: { step: "start", checklist: {} },
-};
-
-const initialState = {
-  users: [initialUser],
-  accounts: [
-    { id: uid("acct"), userId: initialUser.id, name: "Checking", currency: "USD", createdAt: new Date() },
-  ],
-  transactions: [],
-  recurring: [],
-  budgets: [],
-};
-
-function clone(x){ return JSON.parse(JSON.stringify(x)); }
-
-function addDays(date, days){ const d = new Date(date); d.setUTCDate(d.getUTCDate() + days); return d; }
-function addMonths(date, months){ const d = new Date(date); d.setUTCMonth(d.getUTCMonth() + months); return d; }
-function advance(freq, from){
-  switch (freq) {
-    case "daily": return addDays(from, 1);
-    case "weekly": return addDays(from, 7);
-    case "biweekly": return addDays(from, 14);
-    case "monthly": return addMonths(from, 1);
-    case "quarterly": return addMonths(from, 3);
-    default: return from;
-  }
-}
-
-// -------------------- Domain Helpers --------------------
-function getBalance(state, accountId){
-  return state.transactions
-    .filter(t => t.accountId === accountId)
-    .reduce((sum, t) => sum + (t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? t.amountMinor : -t.amountMinor), 0);
-}
-
-function currencyFmt(minor, ccy = "USD"){ return new Intl.NumberFormat(undefined, { style: "currency", currency: ccy }).format((minor ?? 0)/100); }
-
-// -------------------- UI Building Blocks --------------------
-const Card = ({ title, children, footer, className = "" }) => (
-  <div className={`rounded-2xl shadow p-4 bg-white/5 border border-white/10 ${className}`}>
-    {title && <div className="text-lg font-semibold mb-2">{title}</div>}
-    <div className="text-sm">{children}</div>
-    {footer && <div className="mt-3 pt-3 border-t border-white/10 text-xs opacity-80">{footer}</div>}
-  </div>
-);
-
-const Field = ({ label, children }) => (
-  <label className="block mb-3">
-    <div className="mb-1 text-xs uppercase tracking-wide opacity-80">{label}</div>
-    {children}
-  </label>
-);
-
-const Button = ({ children, onClick, className = "", type = "button" }) => (
-  <button type={type} onClick={onClick} className={`px-3 py-2 rounded-xl shadow hover:shadow-md bg-white/10 border border-white/15 text-sm ${className}`}>{children}</button>
-);
-
-const Tab = ({ active, onClick, children }) => (
-  <button onClick={onClick} className={`px-3 py-2 rounded-xl text-sm ${active ? "bg-white/15 border border-white/20" : "hover:bg-white/10"}`}>{children}</button>
-);
-
-// -------------------- Feature Panels --------------------
-function Onboarding({ state, setState }){
-  const user = state.users[0];
-  const steps = ["start","verify_identity","connect_parent","create_account","set_budgets","done"];
-  const idx = steps.indexOf(user.onboarding.step);
-  const next = () => {
-    const nextStep = steps[Math.min(idx + 1, steps.length - 1)];
-    const copy = clone(state);
-    copy.users[0].onboarding.step = nextStep;
-    setState(copy);
-  };
-  return (
-    <Card title="Onboarding">
-      <div className="space-y-3">
-        <div>Current step: <span className="font-semibold">{user.onboarding.step}</span></div>
-        <div className="flex gap-2 flex-wrap">
-          {steps.map((s, i) => (
-            <div key={s} className={`px-2 py-1 rounded ${i <= idx ? "bg-green-500/20" : "bg-white/10"}`}>{s}</div>
-          ))}
-        </div>
-        {user.onboarding.step !== "done" ? (
-          <Button onClick={next}>Continue</Button>
-        ) : (
-          <div className="text-green-400">Onboarding complete ✔</div>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function Accounts({ state, setState }){
-  const user = state.users[0];
-  const accts = state.accounts.filter(a => a.userId === user.id);
-  const [name, setName] = useState("");
-  const [ccy, setCcy] = useState("USD");
-
-  const create = () => {
-    if (!name.trim()) return;
-    const copy = clone(state);
-    copy.accounts.push({ id: uid("acct"), userId: user.id, name, currency: ccy, createdAt: new Date() });
-    setState(copy); setName("");
-  };
-
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      <Card title="Your Accounts">
-        <div className="space-y-2">
-          {accts.map(a => (
-            <div key={a.id} className="flex items-center justify-between bg-white/5 rounded-xl p-2">
-              <div>
-                <div className="font-medium">{a.name}</div>
-                <div className="text-xs opacity-70">{a.currency}</div>
-              </div>
-              <div className="font-semibold">{currencyFmt(getBalance(state, a.id), a.currency)}</div>
-            </div>
-          ))}
-          {accts.length === 0 && <div className="opacity-70">No accounts yet.</div>}
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Bank</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #101929;
-        --panel: rgba(17, 27, 44, 0.8);
-        --border: rgba(255, 255, 255, 0.08);
-        --accent: #6ee7b7;
-        --accent-strong: #34d399;
-        --text: #f8fafc;
-        --muted: rgba(248, 250, 252, 0.7);
-        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TeenBank — Username/Password Demo</title>
 
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-      }
+  <script>
+    window.tailwind = { config: { darkMode: 'class' } };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-      body {
-        margin: 0;
-        background: radial-gradient(circle at 20% 20%, #1f2937 0%, #0f172a 55%, #020617 100%);
-        min-height: 100vh;
-        color: var(--text);
-      }
+  <!-- React 18 (UMD) + Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
 
-      header,
-      main,
-      footer {
-        width: min(1100px, calc(100% - 2.5rem));
-        margin: 0 auto;
-      }
+<body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+  <div id="root" class="h-full"></div>
 
-      header {
-        padding: 2.5rem 0 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-      }
+  <script type="text/babel">
+    const { useEffect, useMemo, useState } = React;
 
-      h1 {
-        margin: 0;
-        font-size: clamp(2rem, 4vw, 2.75rem);
-      }
+    // ------------------- Constants & helpers -------------------
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_DEFAULT_PASSWORD = 'admin123';
 
-      p {
-        margin: 0;
-      }
+    const DB_KEY = 'teenbank_participants_v3';   // bumped schema key
+    const THEME_KEY = 'teenbank_theme';
 
-      .muted {
-        color: var(--muted);
-      }
+    // Seed data (no passwords for normal users; admin added at load)
+    const DEFAULT_PARTICIPANTS = [
+      { id: 1, username: 'ava',  name: 'Ava',  subscriptionActive: false, weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 50, memo: 'Starting balance', ts: Date.now()-3_600_000}] },
+      { id: 2, username: 'ben',  name: 'Ben',  subscriptionActive: true,  weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 75, memo: 'Starting balance', ts: Date.now()-2_600_000}] },
+      { id: 3, username: 'maya', name: 'Maya', subscriptionActive: false, weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 30, memo: 'Starting balance', ts: Date.now()-1_600_000}] },
+    ];
 
-      .tabs {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.6rem;
-        margin-bottom: 1.5rem;
-      }
+    function fmtUSD(n){ return (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
+    function now(){ return Date.now(); }
 
-      .tab-button {
-        background: transparent;
-        color: inherit;
-        border: 1px solid transparent;
-        padding: 0.55rem 1.1rem;
-        border-radius: 999px;
-        font-size: 0.95rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
+    function computeBalance(user){
+      const tx = user.transactions || [];
+      return tx.reduce((s,t)=> s + Number(t.amount||0), 0);
+    }
 
-      .tab-button:hover,
-      .tab-button:focus-visible {
-        border-color: var(--border);
-        background: rgba(255, 255, 255, 0.05);
-        outline: none;
-      }
+    // --- crypto (demo only) ---
+    async function sha256(text){
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+    function randomSalt(len=16){
+      const arr = new Uint8Array(len); crypto.getRandomValues(arr);
+      return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
 
-      .tab-button.active {
-        background: rgba(255, 255, 255, 0.12);
-        border-color: rgba(255, 255, 255, 0.2);
-      }
-
-      .panel-grid {
-        display: grid;
-        gap: 1.25rem;
-      }
-
-      @media (min-width: 960px) {
-        .panel-grid.two {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+    function migrateIfNeeded(raw){
+      // v2 -> v3: switch from email-based to username-based auth
+      // If older objects have "email" but no "username", derive username from name/email localpart.
+      const list = raw ? JSON.parse(raw) : DEFAULT_PARTICIPANTS;
+      return list.map(u => {
+        const copy = {...u};
+        if (!copy.username) {
+          if (copy.email) {
+            copy.username = String(copy.email).split('@')[0].toLowerCase();
+          } else if (copy.name) {
+            copy.username = String(copy.name).toLowerCase().replace(/\s+/g,'');
+          } else {
+            copy.username = 'user'+(copy.id||Math.floor(Math.random()*1e6));
+          }
         }
+        // strip legacy fields that don't apply
+        delete copy.email;
+        delete copy.demoPassword;
+        // ensure arrays/objects
+        copy.transactions = Array.isArray(copy.transactions) ? copy.transactions : [];
+        copy.weeklyDeductions = Array.isArray(copy.weeklyDeductions) ? copy.weeklyDeductions : [];
+        copy.goals = Array.isArray(copy.goals) ? copy.goals : [];
+        copy.budgets = typeof copy.budgets === 'object' && copy.budgets ? copy.budgets : {};
+        return copy;
+      });
+    }
 
-        .panel-grid.three {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+    function loadParticipants(){
+      try {
+        const stored = localStorage.getItem(DB_KEY);
+        const arr = migrateIfNeeded(stored);
+        // Ensure admin exists with password
+        if (!arr.find(u => u.username === ADMIN_USERNAME)) {
+          arr.push({
+            id: Date.now(),
+            username: ADMIN_USERNAME,
+            name: 'Admin',
+            subscriptionActive: false,
+            weeklyDeductions: [],
+            goals: [],
+            budgets: {},
+            transactions: [],
+          });
         }
-      }
+        return arr;
+      } catch (e){ console.warn('Load fail, using defaults', e); return migrateIfNeeded(); }
+    }
 
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 1.35rem;
-        box-shadow: 0 25px 45px rgba(15, 23, 42, 0.35);
-        backdrop-filter: blur(18px);
-      }
+    function saveParticipants(list){
+      localStorage.setItem(DB_KEY, JSON.stringify(list));
+    }
 
-      .card h2 {
-        font-size: 1.2rem;
-        margin-bottom: 0.85rem;
-      }
+    // ------------------- UI primitives -------------------
+    function Toast({ text, onClose }){
+      useEffect(() => { const t = setTimeout(onClose, 1800); return () => clearTimeout(t); }, [onClose]);
+      return <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black/90 text-white text-sm px-3 py-2 rounded shadow-lg">{text}</div>;
+    }
 
-      label {
-        display: block;
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.3rem;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        padding: 0.55rem 0.75rem;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(15, 23, 42, 0.8);
-        color: inherit;
-        font-size: 0.95rem;
-        transition: border-color 0.2s ease;
-      }
-
-      input:focus,
-      select:focus,
-      textarea:focus {
-        border-color: var(--accent);
-        outline: none;
-      }
-
-      button.primary {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
-        color: #06283d;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 999px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-      }
-
-      button.primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 12px 25px rgba(110, 231, 183, 0.25);
-      }
-
-      button.secondary {
-        background: rgba(255, 255, 255, 0.05);
-        color: inherit;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 0.55rem 1.1rem;
-        border-radius: 12px;
-        cursor: pointer;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.95rem;
-      }
-
-      table thead {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--muted);
-      }
-
-      table th,
-      table td {
-        text-align: left;
-        padding: 0.6rem 0.4rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      }
-
-      table tbody tr:last-child td {
-        border-bottom: none;
-      }
-
-      .chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        background: rgba(148, 163, 184, 0.18);
-        font-size: 0.75rem;
-      }
-
-      .positive {
-        color: #4ade80;
-      }
-
-      .negative {
-        color: #f87171;
-      }
-
-      .stack {
-        display: grid;
-        gap: 0.8rem;
-      }
-
-      .list {
-        display: grid;
-        gap: 0.5rem;
-        margin: 0;
-        padding-left: 1.1rem;
-        font-size: 0.95rem;
-      }
-
-      .list li::marker {
-        color: var(--accent);
-      }
-
-      footer {
-        padding: 2.5rem 0 4rem;
-        text-align: center;
-        font-size: 0.8rem;
-        color: var(--muted);
-      }
-
-      .hidden {
-        display: none !important;
-      }
-    </style>
-  </head>
-  <body>
-    <header>
-      <div class="chip">Prototype</div>
-      <h1>Student Bank</h1>
-      <p class="muted">A playful banking dashboard for students to learn healthy money habits.</p>
-    </header>
-
-    <main>
-      <nav class="tabs" id="tab-buttons"></nav>
-
-      <section class="stack" data-tab="Onboarding">
-        <div class="card">
-          <h2>Welcome Journey</h2>
-          <p class="muted">Track where the student is in the guided onboarding experience.</p>
-          <div class="stack" id="onboarding-steps"></div>
-          <button class="primary" id="advance-onboarding">Continue to Next Step</button>
+    function ProgressBar({ value, max }){
+      const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+      return (
+        <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
+          <div className="h-2 bg-indigo-600" style={{ width: pct + '%' }} />
         </div>
-      </Card>
+      );
+    }
 
-      <Card title="Open Account">
-        <Field label="Name">
-          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Savings" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/>
-        </Field>
-        <Field label="Currency">
-          <select value={ccy} onChange={e=>setCcy(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-            {["USD","EUR","GBP","CHF","CAD","AUD"].map(x=> <option key={x} value={x}>{x}</option>)}
-          </select>
-        </Field>
-        <Button onClick={create}>Create</Button>
-      </Card>
-    </div>
-  );
-}
-
-function Transactions({ state, setState }){
-  const user = state.users[0];
-  const accts = state.accounts.filter(a => a.userId === user.id);
-  const [accountId, setAccountId] = useState(accts[0]?.id);
-  const [amount, setAmount] = useState("");
-  const [desc, setDesc] = useState("");
-  const [category, setCategory] = useState("other");
-
-  const post = (kind) => {
-    if (!accountId) return;
-    const cents = Math.round(parseFloat(amount || "0") * 100);
-    if (!(cents > 0)) return;
-    const copy = clone(state);
-    copy.transactions.push({
-      id: uid("tx"), accountId, type: kind, amountMinor: cents, description: desc || (kind === "deposit" ? "Deposit" : "Withdrawal"), category: (kind === "deposit" ? "income" : category), createdAt: new Date()
-    });
-    setState(copy); setAmount(""); setDesc("");
-  };
-
-  const list = state.transactions
-    .filter(t => !accountId || t.accountId === accountId)
-    .slice(-50)
-    .reverse();
-
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      <Card title="New Transaction">
-        <Field label="Account">
-          <select value={accountId} onChange={e=>setAccountId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-            {accts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Amount">
-          <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="12.34" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/>
-        </Field>
-        <Field label="Description">
-          <input value={desc} onChange={e=>setDesc(e.target.value)} placeholder="Groceries" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/>
-        </Field>
-        <Field label="Category (for withdrawals)">
-          <select value={category} onChange={e=>setCategory(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-            {["savings","food","transport","shopping","entertainment","school","fees","other"].map(x=> <option key={x} value={x}>{x}</option>)}
-          </select>
-        </Field>
-        <div className="flex gap-2">
-          <Button onClick={()=>post("deposit")}>Deposit</Button>
-          <Button onClick={()=>post("withdrawal")} className="">Withdraw</Button>
-      </section>
-
-      <section class="panel-grid two hidden" data-tab="Accounts">
-        <div class="card">
-          <h2>Accounts</h2>
-          <div class="stack">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Currency</th>
-                  <th>Balance</th>
-                </tr>
-              </thead>
-              <tbody id="accounts-table"></tbody>
-            </table>
+    function GoalRow({ g, onContribute }){
+      const [contrib, setContrib] = useState('');
+      const saved = Number(g.saved)||0; const target = Number(g.target)||0; const remaining = Math.max(0, target - saved);
+      return (
+        <div className="p-3 rounded border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="font-medium">{g.name}</div>
+              <div className="text-sm text-slate-600 dark:text-slate-300">{fmtUSD(saved)} / {fmtUSD(target)} <span className="text-slate-500">({fmtUSD(remaining)} left)</span></div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input className="border p-1 rounded w-28 dark:bg-slate-800 dark:border-slate-700" type="number" step="0.01" placeholder="$ add" value={contrib} onChange={e=>setContrib(e.target.value)} />
+              <button className="bg-emerald-600 text-white px-3 py-1 rounded" onClick={()=>{ const n = parseFloat(contrib); if(!Number.isNaN(n) && n>0){ onContribute(n); setContrib(''); } }}>Contribute</button>
+            </div>
           </div>
+          <div className="mt-2"><ProgressBar value={saved} max={target} /></div>
         </div>
-      </Card>
-
-      <Card title="Recent Activity">
-        <div className="space-y-2 max-h-80 overflow-auto pr-1">
-          {list.map(t => (
-            <div key={t.id} className="flex items-center justify-between bg-white/5 rounded-xl p-2">
-              <div>
-                <div className="font-medium">{t.description}</div>
-                <div className="text-xs opacity-70">{new Date(t.createdAt).toLocaleString()} · {t.category || "—"}</div>
-              </div>
-              <div className={`font-semibold ${t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? "text-green-400" : "text-red-300"}`}>
-                {t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? "+" : "-"}{currencyFmt(t.amountMinor)}
-              </div>
-        <div class="card">
-          <h2>Create Account</h2>
-          <form id="account-form" class="stack">
-            <div>
-              <label for="account-name">Account name</label>
-              <input id="account-name" name="name" placeholder="Travel Fund" required />
-            </div>
-            <div>
-              <label for="account-currency">Currency</label>
-              <select id="account-currency" name="currency">
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-              </select>
-            </div>
-          ))}
-          {list.length === 0 && <div className="opacity-70">No transactions yet.</div>}
-            <button type="submit" class="primary">Add Account</button>
-          </form>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function Recurring({ state, setState }){
-  const user = state.users[0];
-  const accts = state.accounts.filter(a => a.userId === user.id);
-  const [accountId, setAccountId] = useState(accts[0]?.id);
-  const [name, setName] = useState("");
-  const [sign, setSign] = useState("+");
-  const [amount, setAmount] = useState("");
-  const [freq, setFreq] = useState("weekly");
-  const [nextRun, setNextRun] = useState(() => new Date().toISOString().slice(0,10));
-  const [category, setCategory] = useState("other");
-
-  const add = () => {
-    const cents = Math.round(parseFloat(amount || "0")*100);
-    if (!accountId || !name.trim() || !(cents>0)) return;
-    const copy = clone(state);
-    copy.recurring.push({ id: uid("rc"), userId: user.id, accountId, name, sign, amountMinor: cents, frequency: freq, nextRun: new Date(nextRun), category, active: true });
-    setState(copy); setName(""); setAmount("");
-  };
-
-  const runDue = () => {
-    const now = new Date();
-    const copy = clone(state);
-    for (const r of copy.recurring) {
-      if (!r.active) continue;
-      while (new Date(r.nextRun) <= now) {
-        if (r.sign === "+") {
-          copy.transactions.push({ id: uid("tx"), accountId: r.accountId, type: "deposit", amountMinor: r.amountMinor, description: r.name, category: r.category || "income", createdAt: new Date() });
-        } else {
-          copy.transactions.push({ id: uid("tx"), accountId: r.accountId, type: "withdrawal", amountMinor: r.amountMinor, description: r.name, category: r.category || "other", createdAt: new Date() });
-        }
-        r.nextRun = advance(r.frequency, new Date(r.nextRun));
-      }
+      );
     }
-    setState(copy);
-  };
 
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      <Card title="Add Recurring">
-        <Field label="Account">
-          <select value={accountId} onChange={e=>setAccountId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-            {accts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        </Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Name"><input value={name} onChange={e=>setName(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/></Field>
-          <Field label="Amount"><input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="25.00" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/></Field>
-          <Field label="Type"><select value={sign} onChange={e=>setSign(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"><option value="+">Income (+)</option><option value="-">Expense (-)</option></select></Field>
-          <Field label="Frequency"><select value={freq} onChange={e=>setFreq(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">{["daily","weekly","biweekly","monthly","quarterly"].map(x=> <option key={x} value={x}>{x}</option>)}</select></Field>
-          <Field label="Next Run"><input type="date" value={nextRun} onChange={e=>setNextRun(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/></Field>
-          <Field label="Category"><select value={category} onChange={e=>setCategory(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">{["income","savings","food","transport","shopping","entertainment","school","fees","other"].map(x=> <option key={x} value={x}>{x}</option>)}</select></Field>
-      </section>
+    // ------------------- Admin Panel -------------------
+    function AdminPanel({ participants, onAdjust, onSubscribe, onCancel, onDelete }){
+      const [q,setQ] = useState('');
+      const filtered = React.useMemo(()=>{
+        const t = q.trim().toLowerCase(); if(!t) return participants;
+        return participants.filter(p => (p.name+' '+p.username).toLowerCase().includes(t));
+      }, [participants, q]);
 
-      <section class="panel-grid two hidden" data-tab="Transactions">
-        <div class="card">
-          <h2>Record Transaction</h2>
-          <form id="transaction-form" class="stack">
-            <div>
-              <label for="transaction-account">Account</label>
-              <select id="transaction-account" name="account" required></select>
-            </div>
-            <div>
-              <label for="transaction-type">Type</label>
-              <select id="transaction-type" name="type">
-                <option value="deposit">Deposit</option>
-                <option value="withdrawal">Withdrawal</option>
-                <option value="transfer_in">Transfer In</option>
-                <option value="transfer_out">Transfer Out</option>
-                <option value="interest">Interest</option>
-              </select>
-            </div>
-            <div>
-              <label for="transaction-amount">Amount</label>
-              <input id="transaction-amount" name="amount" type="number" min="0.01" step="0.01" placeholder="25.00" required />
-            </div>
-            <div>
-              <label for="transaction-description">Description</label>
-              <input id="transaction-description" name="description" placeholder="Lunch with friends" required />
-            </div>
-            <div>
-              <label for="transaction-category">Category</label>
-              <input id="transaction-category" name="category" placeholder="Food" />
-            </div>
-            <button type="submit" class="primary">Add Transaction</button>
-          </form>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={add}>Add</Button>
-          <Button onClick={runDue}>Post Due Items</Button>
-        <div class="card">
-          <h2>Recent Activity</h2>
-          <div class="stack" id="transaction-list"></div>
-        </div>
-      </Card>
-
-      <Card title="Existing Rules">
-        <div className="space-y-2 max-h-80 overflow-auto pr-1">
-          {state.recurring.filter(r => r.userId === user.id).map(r => (
-            <div key={r.id} className="flex items-center justify-between bg-white/5 rounded-xl p-2">
-              <div>
-                <div className="font-medium">{r.name}</div>
-                <div className="text-xs opacity-70">{r.sign}{currencyFmt(r.amountMinor)} · {r.frequency} · next {new Date(r.nextRun).toLocaleDateString()}</div>
-              </div>
-              <div className="text-xs opacity-70">{state.accounts.find(a=>a.id===r.accountId)?.name}</div>
-      </section>
-
-      <section class="panel-grid two hidden" data-tab="Recurring">
-        <div class="card">
-          <h2>Recurring Plans</h2>
-          <form id="recurring-form" class="stack">
-            <div>
-              <label for="recurring-account">Account</label>
-              <select id="recurring-account" required></select>
-            </div>
-            <div>
-              <label for="recurring-name">Name</label>
-              <input id="recurring-name" placeholder="Spotify" required />
-            </div>
-            <div>
-              <label for="recurring-amount">Amount</label>
-              <input id="recurring-amount" type="number" min="0.01" step="0.01" placeholder="5.99" required />
-            </div>
-            <div>
-              <label for="recurring-frequency">Frequency</label>
-              <select id="recurring-frequency">
-                <option value="monthly">Monthly</option>
-                <option value="weekly">Weekly</option>
-                <option value="quarterly">Quarterly</option>
-              </select>
-            </div>
-          ))}
-          {state.recurring.length === 0 && <div className="opacity-70">No recurring rules.</div>}
-            <button type="submit" class="primary">Save Plan</button>
-          </form>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function Budgets({ state, setState }){
-  const user = state.users[0];
-  const month = toMonthKey(new Date());
-  const existing = state.budgets.find(b => b.userId === user.id && b.month === month);
-  const [food, setFood] = useState((existing?.limitsMinor?.food ?? 0)/100 || "");
-  const [transport, setTransport] = useState((existing?.limitsMinor?.transport ?? 0)/100 || "");
-
-  const upsert = () => {
-    const copy = clone(state);
-    let b = copy.budgets.find(x => x.userId === user.id && x.month === month);
-    if (!b) { b = { id: uid("bdg"), userId: user.id, month, currency: "USD", limitsMinor: {}, alerts: [] }; copy.budgets.push(b); }
-    if (food) b.limitsMinor.food = Math.round(parseFloat(food)*100);
-    if (transport) b.limitsMinor.transport = Math.round(parseFloat(transport)*100);
-    setState(copy);
-  };
-
-  const spend = useMemo(() => {
-    const copy = { income:0,savings:0,food:0,transport:0,shopping:0,entertainment:0,school:0,fees:0,other:0 };
-    const [y,m] = month.split("-").map(Number);
-    const start = new Date(Date.UTC(y, m-1, 1));
-    const end = new Date(Date.UTC(y, m, 1));
-    for (const t of state.transactions) {
-      if (!(t.createdAt && new Date(t.createdAt) >= start && new Date(t.createdAt) < end)) continue;
-      const isExpense = t.type === "withdrawal" || t.type === "transfer_out" || t.type === "fee";
-      if (isExpense) copy[t.category || "other"] += t.amountMinor;
-    }
-    return copy;
-  }, [state.transactions]);
-
-  const alerts = useMemo(() => {
-    const b = state.budgets.find(x => x.userId === user.id && x.month === month);
-    if (!b) return [];
-    const out = [];
-    for (const [cat, limit] of Object.entries(b.limitsMinor || {})){
-      const spent = (spend[cat]||0);
-      if (!limit || limit <= 0) continue;
-      const pct = (spent/limit)*100;
-      if (pct >= 100) out.push(`${cat} budget exceeded`);
-      else if (pct >= 80) out.push(`${cat} hit 80% of budget`);
-      else if (pct >= 50) out.push(`${cat} hit 50% of budget`);
-    }
-    return out;
-  }, [state.budgets, state.transactions]);
-
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      <Card title={`Set Budgets (${month})`}>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Food ($)"><input value={food} onChange={e=>setFood(e.target.value)} placeholder="80" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/></Field>
-          <Field label="Transport ($)"><input value={transport} onChange={e=>setTransport(e.target.value)} placeholder="40" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15"/></Field>
-        <div class="card">
-          <h2>Upcoming Charges</h2>
-          <div id="recurring-list" class="stack"></div>
-        </div>
-        <div className="mt-2"><Button onClick={upsert}>Save Budgets</Button></div>
-      </Card>
-
-      <Card title="This Month">
-        <div className="space-y-2">
-          {Object.entries(spend).map(([k,v]) => (
-            <div key={k} className="flex items-center justify-between bg-white/5 rounded-xl p-2">
-              <div className="capitalize">{k}</div>
-              <div>{currencyFmt(v)}</div>
-      </section>
-
-      <section class="panel-grid two hidden" data-tab="Budgets">
-        <div class="card">
-          <h2>Monthly Budgets</h2>
-          <form id="budget-form" class="stack">
-            <div>
-              <label for="budget-category">Category</label>
-              <input id="budget-category" placeholder="Food" required />
-            </div>
-          ))}
-          {alerts.length>0 && (
-            <div className="mt-2 p-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-              <div className="font-medium mb-1">Alerts</div>
-              <ul className="list-disc ml-5 space-y-1 text-sm">
-                {alerts.map((a,i)=>(<li key={i}>{a}</li>))}
-              </ul>
-            <div>
-              <label for="budget-amount">Monthly Allowance</label>
-              <input id="budget-amount" type="number" min="1" step="0.5" placeholder="150" required />
-            </div>
-          )}
-            <button type="submit" class="primary">Set Budget</button>
-          </form>
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function Statements({ state }){
-  const user = state.users[0];
-  const accts = state.accounts.filter(a => a.userId === user.id);
-  const [accountId, setAccountId] = useState(accts[0]?.id);
-  const month = toMonthKey(new Date());
-  const [y, m] = month.split("-").map(Number);
-  const from = new Date(Date.UTC(y, m-1, 1));
-  const to = new Date(Date.UTC(y, m, 1));
-
-  const tx = state.transactions
-    .filter(t => (!accountId || t.accountId === accountId) && new Date(t.createdAt) >= from && new Date(t.createdAt) < to)
-    .sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
-
-  const opening = state.transactions
-    .filter(t => (!accountId || t.accountId === accountId) && new Date(t.createdAt) < from)
-    .reduce((sum,t)=> sum + (t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? t.amountMinor : -t.amountMinor), 0);
-  const closing = opening + tx.reduce((sum,t)=> sum + (t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? t.amountMinor : -t.amountMinor), 0);
-
-  return (
-    <Card title="Monthly Statement">
-      <Field label="Account">
-        <select value={accountId} onChange={e=>setAccountId(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/15">
-          {accts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </Field>
-      <div className="text-sm opacity-80 mb-2">Period: {from.toISOString().slice(0,10)} → {to.toISOString().slice(0,10)}</div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <Card title="Opening" className=""><div className="text-xl font-semibold">{currencyFmt(opening)}</div></Card>
-        <Card title="Closing" className=""><div className="text-xl font-semibold">{currencyFmt(closing)}</div></Card>
-      </div>
-      <div className="space-y-2 max-h-80 overflow-auto pr-1">
-        {tx.map(t => (
-          <div key={t.id} className="flex items-center justify-between bg-white/5 rounded-xl p-2">
-        <div class="card">
-          <h2>Current Spend</h2>
-          <div class="stack" id="budget-summary"></div>
-        </div>
-      </section>
-
-      <section class="panel-grid two hidden" data-tab="Statements">
-        <div class="card">
-          <h2>Statement Builder</h2>
-          <form id="statement-form" class="stack">
-            <div>
-              <div className="font-medium">{t.description}</div>
-              <div className="text-xs opacity-70">{new Date(t.createdAt).toLocaleString()} · {t.category || "—"}</div>
-              <label for="statement-account">Account</label>
-              <select id="statement-account" required></select>
-            </div>
-            <div className={`font-semibold ${t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? "text-green-400" : "text-red-300"}`}>
-              {t.type === "deposit" || t.type === "transfer_in" || t.type === "interest" ? "+" : "-"}{currencyFmt(t.amountMinor)}
-            <div>
-              <label for="statement-month">Month</label>
-              <input id="statement-month" type="month" required />
-            </div>
-            <button type="submit" class="primary">Generate</button>
-          </form>
-        </div>
-        <div class="card">
-          <h2>Statement</h2>
-          <div class="stack" id="statement-output">
-            <p class="muted">Choose an account and month to see activity.</p>
+      return (
+        <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Admin · Participants</h3>
+            <input className="border rounded px-2 py-1 text-sm dark:bg-slate-900 dark:border-slate-700" placeholder="Search name or username" value={q} onChange={e=>setQ(e.target.value)} />
           </div>
-        ))}
-        {tx.length===0 && <div className="opacity-70">No activity this period.</div>}
-      </div>
-    </Card>
-  );
-}
+          <ul className="divide-y dark:divide-slate-700">
+            {filtered.map(p => (
+              <li key={p.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="font-medium">{p.name} <span className="text-slate-500">(@{p.username})</span></div>
+                  <div className="text-sm text-slate-600 dark:text-slate-300">Balance: <strong>{fmtUSD(computeBalance(p))}</strong></div>
+                  <div className="text-xs text-slate-500">Subscription: {p.subscriptionActive ? 'Active' : 'Inactive'}</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="px-3 py-1 rounded bg-indigo-600 text-white text-xs" onClick={()=>onSubscribe(p.id)}>Activate</button>
+                  <button className="px-3 py-1 rounded bg-rose-600 text-white text-xs" onClick={()=>onCancel(p.id)}>Cancel</button>
+                  <button className="px-3 py-1 rounded bg-emerald-600 text-white text-xs" onClick={()=>onAdjust(p.id, +5, 'Admin +$5')}>+ $5</button>
+                  <button className="px-3 py-1 rounded bg-amber-600 text-white text-xs" onClick={()=>onAdjust(p.id, -5, 'Admin -$5')}>− $5</button>
+                  <button className="px-3 py-1 rounded bg-slate-800 text-white text-xs" onClick={()=>onDelete(p.id)}>Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-slate-500">Admin can control access, write adjustments as transactions, and manage subscriptions.</p>
+        </section>
+      );
+    }
 
-// -------------------- App Shell --------------------
-function Tabs({ tab, setTab }){
-  const items = ["Onboarding","Accounts","Transactions","Recurring","Budgets","Statements"];
-  return (
-    <div className="flex flex-wrap gap-2 mb-4">
-      {items.map(name => (
-        <Tab key={name} active={tab===name} onClick={()=>setTab(name)}>{name}</Tab>
-      ))}
-    </div>
-  );
-}
+    // ------------------- User Panel -------------------
+    function UserPanel({ user, updateUser, applyWeeklyAll }){
+      const [delta, setDelta] = useState('');
+      const [memo, setMemo] = useState('');
+      const [wdName, setWdName] = useState('');
+      const [wdAmt, setWdAmt] = useState('');
+      const [goalName, setGoalName] = useState('');
+      const [goalTarget, setGoalTarget] = useState('');
+      const [cat, setCat] = useState('');
+      const [bAmt, setBAmt] = useState('');
 
-export default function TeenBankApp(){
-  const [state, setState] = useState(initialState);
-  const [tab, setTab] = useState("Onboarding");
+      const balance = useMemo(()=> computeBalance(user), [user.transactions]);
 
-  return (
-    <div className="min-h-screen text-white p-4 md:p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="max-w-5xl mx-auto">
-        <header className="mb-6 flex items-center justify-between">
+      function pushTx(amount, memo){
+        updateUser(u => ({...u, transactions: [...(u.transactions||[]), { amount: Number(amount), memo: memo||null, ts: now() }]}));
+      }
+
+      function deposit(){
+        const n = parseFloat(delta); if(Number.isNaN(n) || n <= 0) return;
+        // allocate to goals automatically first
+        let remaining = n;
+        const updGoals = (user.goals||[]).map(g => {
+          if (remaining <= 0) return g;
+          const need = Math.max(0, Number(g.target) - Number(g.saved));
+          const add = Math.min(need, remaining);
+          remaining -= add; return {...g, saved: Number(g.saved)+add};
+        });
+        updateUser(u => ({...u, goals: updGoals}));
+        pushTx(n, memo || 'Deposit');
+        setDelta(''); setMemo('');
+      }
+
+      function withdraw(){
+        const n = parseFloat(delta); if(Number.isNaN(n) || n <= 0) return;
+        pushTx(-n, memo || 'Withdraw');
+        setDelta(''); setMemo('');
+      }
+
+      function undoLast(){
+        updateUser(u => ({...u, transactions: (u.transactions||[]).slice(0, -1)}));
+      }
+
+      function addWeekly(){
+        const n = parseFloat(wdAmt); if(!wdName || Number.isNaN(n) || n<=0) return;
+        updateUser(u => ({...u, weeklyDeductions: [...(u.weeklyDeductions||[]), { name: wdName, amount: n }]}));
+        // immediately apply once, like original
+        pushTx(-n, `Weekly: ${wdName}`);
+        setWdName(''); setWdAmt('');
+      }
+
+      function removeWeekly(idx){
+        updateUser(u => { const arr = [...(u.weeklyDeductions||[])]; arr.splice(idx,1); return {...u, weeklyDeductions: arr}; });
+      }
+
+      function addGoal(){
+        const t = parseFloat(goalTarget); if(!goalName || Number.isNaN(t) || t<=0) return;
+        updateUser(u => ({...u, goals: [...(u.goals||[]), { name: goalName, target: t, saved: 0 }]}));
+        setGoalName(''); setGoalTarget('');
+      }
+
+      function contributeGoal(idx, amt){
+        const n = Number(amt); if(Number.isNaN(n) || n<=0) return;
+        updateUser(u => {
+          const goals = [...(u.goals||[])];
+          const g = {...goals[idx]};
+          const maxAdd = Math.min(n, Math.max(0, Number(g.target) - Number(g.saved)));
+          if (maxAdd <= 0) return u;
+          g.saved = Number(g.saved) + maxAdd; goals[idx] = g;
+          return {...u, goals};
+        });
+        pushTx(-n, 'Goal contribution');
+      }
+
+      function upsertBudget(){
+        const n = parseFloat(bAmt); if(!cat || Number.isNaN(n) || n<=0) return;
+        updateUser(u => ({...u, budgets: { ...(u.budgets||{}), [cat]: n }}));
+        setCat(''); setBAmt('');
+      }
+
+      function deleteBudget(k){
+        updateUser(u => { const b = { ...(u.budgets||{}) }; delete b[k]; return {...u, budgets: b}; });
+      }
+
+      return (
+        <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-6">
           <div>
-            <h1 className="text-2xl font-bold">TeenBank</h1>
-            <p className="text-sm opacity-80">Very base website model · in‑memory</p>
+            <h3 className="text-lg font-semibold">Welcome, {user.name}</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Balance: <strong>{fmtUSD(balance)}</strong></p>
           </div>
-        </header>
 
-        <Tabs tab={tab} setTab={setTab} />
+          {/* Transactions */}
+          <div className="space-y-2">
+            <h4 className="font-medium">Transactions</h4>
+            <div className="flex flex-wrap gap-2 items-center">
+              <input type="number" step="0.01" placeholder="$ amount" className="border p-2 rounded w-36 dark:bg-slate-900 dark:border-slate-700" value={delta} onChange={e=>setDelta(e.target.value)} />
+              <input type="text" placeholder="Memo (optional)" className="border p-2 rounded w-60 dark:bg-slate-900 dark:border-slate-700" value={memo} onChange={e=>setMemo(e.target.value)} />
+              <button className="bg-emerald-600 text-white px-3 py-2 rounded" onClick={deposit}>Deposit</button>
+              <button className="bg-amber-600 text-white px-3 py-2 rounded" onClick={withdraw}>Withdraw</button>
+              <button className="bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-3 py-2 rounded" onClick={undoLast}>Undo last</button>
+            </div>
+            <ul className="divide-y dark:divide-slate-700 bg-slate-50 dark:bg-slate-900 rounded">
+              {(user.transactions||[]).slice().reverse().map((t,i)=> (
+                <li key={i} className="flex items-center justify-between p-2">
+                  <span className="text-sm">{new Date(t.ts||now()).toLocaleString()} — {t.memo || '—'}</span>
+                  <span className={"text-sm font-medium "+(t.amount>=0?'text-emerald-700':'text-rose-400')}>{t.amount>=0?'+':''}{Number(t.amount).toFixed(2)}</span>
+                </li>
+              ))}
+              {(user.transactions||[]).length === 0 && <li className="p-2 text-sm text-slate-500">No transactions yet.</li>}
+            </ul>
+          </div>
 
-        {tab === "Onboarding" && <Onboarding state={state} setState={setState} />}
-        {tab === "Accounts" && <Accounts state={state} setState={setState} />}
-        {tab === "Transactions" && <Transactions state={state} setState={setState} />}
-        {tab === "Recurring" && <Recurring state={state} setState={setState} />}
-        {tab === "Budgets" && <Budgets state={state} setState={setState} />}
-        {tab === "Statements" && <Statements state={state} />}
+          {/* Weekly deductions */}
+          <div>
+            <h4 className="font-medium mb-2">Weekly Deductions</h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <input className="border p-2 rounded dark:bg-slate-900 dark:border-slate-700" placeholder="Name (e.g., Phone)" value={wdName} onChange={e=>setWdName(e.target.value)} />
+              <input className="border p-2 rounded w-32 dark:bg-slate-900 dark:border-slate-700" type="number" step="0.01" placeholder="Amount" value={wdAmt} onChange={e=>setWdAmt(e.target.value)} />
+              <button className="bg-indigo-600 text-white px-3 py-2 rounded" onClick={addWeekly}>Add & Apply</button>
+              <button className="bg-slate-800 text-white px-3 py-2 rounded" onClick={applyWeeklyAll}>Run all weekly now</button>
+            </div>
+            <ul className="space-y-2">
+              {(user.weeklyDeductions||[]).map((d,i)=> (
+                <li key={i} className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 p-2 rounded">
+                  <span>{d.name} — <strong>{fmtUSD(d.amount)}</strong></span>
+                  <button className="text-xs px-2 py-1 rounded bg-rose-600 text-white" onClick={()=>removeWeekly(i)}>Remove</button>
+                </li>
+              ))}
+              {(!user.weeklyDeductions || user.weeklyDeductions.length===0) && (
+                <li className="text-sm text-slate-500">No weekly deductions yet.</li>
+              )}
+            </ul>
+          </div>
 
-        <footer className="mt-8 text-xs opacity-70">© {new Date().getFullYear()} TeenBank (prototype)</footer>
-      </div>
-    </div>
-  );
-}
+          {/* Goals */}
+          <div>
+            <h4 className="font-medium mb-2">Goals</h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <input className="border p-2 rounded dark:bg-slate-900 dark:border-slate-700" placeholder="Goal name (e.g., Bike)" value={goalName} onChange={e=>setGoalName(e.target.value)} />
+              <input className="border p-2 rounded w-32 dark:bg-slate-900 dark:border-slate-700" type="number" step="0.01" placeholder="Target $" value={goalTarget} onChange={e=>setGoalTarget(e.target.value)} />
+              <button className="bg-indigo-600 text-white px-3 py-2 rounded" onClick={addGoal}>Add Goal</button>
+            </div>
+            <div className="space-y-3">
+              {(user.goals||[]).map((g, idx) => (
+                <GoalRow key={idx} g={g} onContribute={(amt)=>contributeGoal(idx, amt)} />
+              ))}
+              {(!user.goals || user.goals.length===0) && (
+                <div className="text-sm text-slate-500">No goals yet. Add your first goal above.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Budgets */}
+          <div>
+            <h4 className="font-medium mb-2">Budgets</h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <input className="border p-2 rounded dark:bg-slate-900 dark:border-slate-700" placeholder="Category (e.g., Food)" value={cat} onChange={e=>setCat(e.target.value)} />
+              <input className="border p-2 rounded w-32 dark:bg-slate-900 dark:border-slate-700" type="number" step="0.01" placeholder="Amount $" value={bAmt} onChange={e=>setBAmt(e.target.value)} />
+              <button className="bg-indigo-600 text-white px-3 py-2 rounded" onClick={upsertBudget}>Add/Update</button>
+            </div>
+            <ul className="space-y-2">
+              {Object.entries(user.budgets||{}).map(([k,v]) => (
+                <li key={k} className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 p-2 rounded">
+                  <span className="font-medium">{k}</span>
+                  <div className="flex items-center gap-3">
+                    <span>{fmtUSD(v)}</span>
+                    <button className="text-xs px-2 py-1 rounded bg-slate-300 dark:bg-slate-700" onClick={()=>deleteBudget(k)}>Delete</button>
+                  </div>
+                </li>
+              ))}
+              {Object.keys(user.budgets||{}).length===0 && (
+                <li className="text-sm text-slate-500">No budgets yet.</li>
+              )}
+            </ul>
+          </div>
+        </section>
+      );
+    }
+
+    // ------------------- App (with username/password auth) -------------------
+    function App(){
+      const [participants, setParticipants] = useState(loadParticipants);
+      const [currentUsername, setCurrentUsername] = useState('');
+      const [password, setPassword] = useState('');
+      const [theme, setTheme] = useState(localStorage.getItem(THEME_KEY) || 'light');
+      const [toast, setToast] = useState(null);
+      const [isCreating, setIsCreating] = useState(false);
+      const [newName, setNewName] = useState('');
+      const [confirmPw, setConfirmPw] = useState('');
+
+      useEffect(()=>{ saveParticipants(participants); }, [participants]);
+      useEffect(()=>{
+        document.documentElement.classList.toggle('dark', theme==='dark');
+        localStorage.setItem(THEME_KEY, theme);
+      }, [theme]);
+
+      // Ensure admin has a password
+      useEffect(() => {
+        (async () => {
+          const admin = participants.find(u => u.username === ADMIN_USERNAME);
+          if (admin && !admin.passwordHash) {
+            const salt = randomSalt();
+            const hash = await sha256(salt + ADMIN_DEFAULT_PASSWORD);
+            setParticipants(prev => prev.map(u => u.username===ADMIN_USERNAME ? {...u, salt, passwordHash: hash} : u));
+          }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+
+      const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === currentUsername.toLowerCase()) || null, [participants, currentUsername]);
+      const isAdmin = currentUser && currentUser.username === ADMIN_USERNAME;
+
+      function notify(msg){ setToast(msg); }
+
+      // --- Auth ---
+      async function login(username, pw){
+        const u = (username||'').trim().toLowerCase();
+        if (!u) return notify('Enter your username');
+        const user = participants.find(x => x.username.toLowerCase() === u);
+        if (!user) return notify('User not found. Create an account first.');
+        if (!user.passwordHash || !user.salt) return notify('This account has no password set yet. Please reset by creating again or ask admin.');
+        const hash = await sha256(user.salt + String(pw||''));
+        if (hash !== user.passwordHash) return notify('Incorrect password');
+        setCurrentUsername(user.username);
+        setPassword('');
+        notify('Logged in as '+user.name);
+      }
+
+      async function createAccount(username, name, pw, pw2){
+        const u = (username||'').trim().toLowerCase();
+        const display = (name||'').trim();
+        if (!u || !display) return notify('Enter a username and display name');
+        if (!pw) return notify('Enter a password');
+        if (pw !== pw2) return notify('Passwords do not match');
+        if (/[^a-z0-9_.-]/i.test(u)) return notify('Username may contain letters, numbers, _ . -');
+        if (participants.some(p => p.username.toLowerCase() === u)) return notify('Username already taken');
+
+        const salt = randomSalt();
+        const passwordHash = await sha256(salt + pw);
+        const user = {
+          id: Date.now(),
+          username: u,
+          name: display,
+          salt,
+          passwordHash,
+          subscriptionActive: false,
+          weeklyDeductions: [],
+          goals: [],
+          budgets: {},
+          transactions: [],
+        };
+        setParticipants(prev => [...prev, user]);
+        setCurrentUsername(u);
+        setPassword('');
+        setConfirmPw('');
+        setNewName('');
+        setIsCreating(false);
+        notify('Account created');
+      }
+
+      function logout(){ setCurrentUsername(''); setPassword(''); }
+
+      // --- Admin ops ---
+      function adminAdjust(userId, delta, memo){
+        setParticipants(prev => prev.map(u => {
+          if (u.id !== userId) return u;
+          return {...u, transactions: [...(u.transactions||[]), { amount: Number(delta), memo: memo||null, ts: now() }] };
+        }));
+      }
+      function adminSub(userId){ setParticipants(prev => prev.map(u => u.id===userId? {...u, subscriptionActive:true}:u)); }
+      function adminCancel(userId){ setParticipants(prev => prev.map(u => u.id===userId? {...u, subscriptionActive:false}:u)); }
+      function adminDelete(userId){ if(!confirm('Delete participant?')) return; setParticipants(prev => prev.filter(u => u.id!==userId)); if(currentUser?.id===userId) logout(); }
+
+      function exportData(){
+        const blob = new Blob([JSON.stringify(participants,null,2)], { type:'application/json' });
+        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='teenbank_data.json'; a.click(); URL.revokeObjectURL(url);
+      }
+      async function importData(file){
+        if (!file) return; const text = await file.text();
+        try{
+          const data = JSON.parse(text);
+          if(!Array.isArray(data)) throw new Error('Bad JSON');
+          setParticipants(migrateIfNeeded(JSON.stringify(data)));
+          notify('Import complete');
+        } catch(e){ alert('Import failed: '+e.message); }
+      }
+
+      function updateMe(mut){
+        setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u));
+      }
+      function applyMyWeeklyNow(){
+        const me = currentUser; if(!me) return;
+        setParticipants(prev => prev.map(u => {
+          if (u.username !== me.username) return u;
+          const txs = [...(u.transactions||[])];
+          (u.weeklyDeductions||[]).forEach(d => txs.push({ amount: -Number(d.amount), memo: `Weekly: ${d.name}`, ts: now() }));
+          return {...u, transactions: txs};
+        }));
+        notify('Applied weekly deductions');
+      }
+
+      // ---------- Screens ----------
+      if (!currentUser){
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center p-6">
+            <div className="bg-white dark:bg-slate-800 max-w-md w-full rounded-2xl shadow p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h1 className="text-2xl font-bold">TeenBank {isCreating ? 'Create Account' : 'Login'}</h1>
+                <button className="text-xs px-2 py-1 rounded border dark:border-slate-700" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>{theme==='dark'?'Light':'Dark'}</button>
+              </div>
+
+              {!isCreating ? (
+                <>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Log in with your <strong>username</strong> and <strong>password</strong>. (Demo only; data stays in your browser.)</p>
+                  <label className="text-sm block mb-1">Username</label>
+                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="yourname" value={currentUsername} onChange={e=>setCurrentUsername(e.target.value)} />
+                  <label className="text-sm block mb-1">Password</label>
+                  <input type="password" className="border w-full p-2 rounded mb-4 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
+                  <button className="w-full bg-indigo-600 text-white py-2 rounded mb-3" onClick={()=>login(currentUsername, password)}>Login</button>
+                  <button className="w-full bg-slate-200 dark:bg-slate-700 py-2 rounded" onClick={()=>setIsCreating(true)}>Create an account</button>
+
+                  <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
+                    <button className="underline" onClick={()=>{ localStorage.removeItem(DB_KEY); location.reload(); }}>Reset demo</button>
+                    <div className="flex items-center gap-2">
+                      <button className="underline" onClick={exportData}>Export</button>
+                      <label className="underline cursor-pointer">
+                        Import
+                        <input type="file" accept="application/json" className="hidden" onChange={e=>importData(e.target.files[0])} />
+                      </label>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">Tip: Admin login: <span className="font-mono">@{ADMIN_USERNAME}</span> / <span className="font-mono">{ADMIN_DEFAULT_PASSWORD}</span></p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Create a new account. Pick a unique username.</p>
+                  <label className="text-sm block mb-1">Username</label>
+                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="yourname" value={currentUsername} onChange={e=>setCurrentUsername(e.target.value)} />
+                  <label className="text-sm block mb-1">Display Name</label>
+                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="e.g., Ava" value={newName} onChange={e=>setNewName(e.target.value)} />
+                  <label className="text-sm block mb-1">Password</label>
+                  <input type="password" className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
+                  <label className="text-sm block mb-1">Confirm Password</label>
+                  <input type="password" className="border w-full p-2 rounded mb-4 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} />
+                  <button className="w-full bg-emerald-600 text-white py-2 rounded mb-3" onClick={()=>createAccount(currentUsername, newName, password, confirmPw)}>Create Account</button>
+                  <button className="w-full bg-slate-200 dark:bg-slate-700 py-2 rounded" onClick={()=>setIsCreating(false)}>Back to login</button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Dashboard
+      return (
+        <div className="min-h-screen p-6">
+          <header className="max-w-5xl mx-auto mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">TeenBank Dashboard</h1>
+              <div className="text-sm text-slate-600 dark:text-slate-300">Logged in as <strong>{currentUser.name}</strong> @{currentUser.username} {isAdmin && <span className="ml-1">(Admin)</span>}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="px-3 py-2 text-sm rounded border dark:border-slate-700" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>{theme==='dark'?'Light':'Dark'}</button>
+              <button className="px-3 py-2 text-sm rounded bg-slate-200 dark:bg-slate-700" onClick={exportData}>Export</button>
+              <label className="px-3 py-2 text-sm rounded bg-slate-200 dark:bg-slate-700 cursor-pointer">Import<input type="file" accept="application/json" className="hidden" onChange={e=>importData(e.target.files[0])} /></label>
+              <button className="px-3 py-2 text-sm rounded bg-slate-800 text-white" onClick={()=>{ setCurrentUsername(''); setPassword(''); }}>Logout</button>
+            </div>
+          </header>
+
+          <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+            {isAdmin ? (
+              <AdminPanel
+                participants={participants}
+                onAdjust={adminAdjust}
+                onSubscribe={adminSub}
+                onCancel={adminCancel}
+                onDelete={adminDelete}
+              />
+            ) : (
+              <UserPanel
+                user={currentUser}
+                updateUser={(mut)=> setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u)) }
+                applyWeeklyAll={applyMyWeeklyNow}
+              />
+            )}
+
+            {/* Side panel */}
+            <aside className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+              <h3 className="text-lg font-semibold">Participants</h3>
+              <ul className="space-y-2 max-h-[420px] overflow-auto pr-1">
+                {participants.map(p => (
+                  <li key={p.id} className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 p-2 rounded">
+                    <div>
+                      <div className="font-medium text-sm">{p.name}</div>
+                      <div className="text-xs text-slate-500">@{p.username}</div>
+                    </div>
+                    <div className="text-xs">{fmtUSD(computeBalance(p))}</div>
+                  </li>
+                ))}
+              </ul>
+              <div className="text-xs text-slate-500">Switch users by logging out and entering another username.</div>
+            </aside>
+          </main>
+
+          <footer className="max-w-5xl mx-auto mt-8 text-sm text-slate-500">
+            Demo only. Real authentication and multi-user storage require a backend/API. Passwords are hashed client-side for demonstration.
+          </footer>
+
+          {toast && <Toast text={toast} onClose={()=>setToast(null)} />}
         </div>
-      </section>
-    </main>
+      );
+    }
 
-    <footer>© <span id="year"></span> Student Bank. Built for curious learners.</footer>
-
-    <script>
-      const STEPS = ["start", "verify_identity", "connect_parent", "create_account", "set_budgets", "done"];
-
-      class Account {
-        constructor({ id, userId, name, currency, createdAt }) {
-          this.id = id;
-          this.userId = userId;
-          this.name = name;
-          this.currency = currency;
-          this.createdAt = createdAt ?? new Date();
-        }
-      }
-
-      class Transaction {
-        constructor({ id, accountId, type, amountMinor, description, category, createdAt }) {
-          this.id = id;
-          this.accountId = accountId;
-          this.type = type;
-          this.amountMinor = amountMinor;
-          this.description = description;
-          this.category = category ?? "";
-          this.createdAt = createdAt ?? new Date();
-        }
-
-        get signedAmount() {
-          const creditTypes = new Set(["deposit", "transfer_in", "interest"]);
-          const multiplier = creditTypes.has(this.type) ? 1 : -1;
-          return this.amountMinor * multiplier;
-        }
-      }
-
-      class RecurringPayment {
-        constructor({ id, accountId, name, amountMinor, frequency, nextRun }) {
-          this.id = id;
-          this.accountId = accountId;
-          this.name = name;
-          this.amountMinor = amountMinor;
-          this.frequency = frequency;
-          this.nextRun = nextRun ?? new Date();
-        }
-      }
-
-      class BankApp {
-        constructor() {
-          this.user = { id: "user_1", name: "Will Hassler", onboardingStep: STEPS[0] };
-          this.accounts = [new Account({ id: "acct_1", userId: this.user.id, name: "Everyday Checking", currency: "USD" })];
-          this.transactions = [
-            new Transaction({
-              id: "txn_1",
-              accountId: "acct_1",
-              type: "deposit",
-              amountMinor: 50000,
-              description: "Initial allowance",
-              category: "Allowance",
-              createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
-            }),
-            new Transaction({
-              id: "txn_2",
-              accountId: "acct_1",
-              type: "withdrawal",
-              amountMinor: 1200,
-              description: "Snacks at school",
-              category: "Food",
-              createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
-            }),
-          ];
-          this.recurring = [
-            new RecurringPayment({
-              id: "rec_1",
-              accountId: "acct_1",
-              name: "Spotify Student",
-              amountMinor: 599,
-              frequency: "monthly",
-              nextRun: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-            }),
-          ];
-          this.budgets = new Map([
-            ["Food", 15000],
-            ["Fun", 6000],
-          ]);
-        }
-
-        nextId(prefix) {
-          return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
-        }
-
-        get onboardingIndex() {
-          return STEPS.indexOf(this.user.onboardingStep);
-        }
-
-        advanceOnboarding() {
-          const next = Math.min(this.onboardingIndex + 1, STEPS.length - 1);
-          this.user.onboardingStep = STEPS[next];
-          return this.user.onboardingStep;
-        }
-
-        addAccount(name, currency) {
-          const account = new Account({ id: this.nextId("acct"), userId: this.user.id, name, currency });
-          this.accounts.push(account);
-          return account;
-        }
-
-        getAccount(id) {
-          return this.accounts.find((account) => account.id === id);
-        }
-
-        addTransaction({ accountId, type, amountMajor, description, category }) {
-          const amountMinor = Math.round(Number(amountMajor) * 100);
-          if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-            throw new Error("Amount must be a positive number");
-          }
-          const transaction = new Transaction({
-            id: this.nextId("txn"),
-            accountId,
-            type,
-            amountMinor,
-            description,
-            category,
-          });
-          this.transactions.push(transaction);
-          return transaction;
-        }
-
-        getTransactionsForAccount(accountId) {
-          return this.transactions
-            .filter((transaction) => transaction.accountId === accountId)
-            .sort((a, b) => b.createdAt - a.createdAt);
-        }
-
-        addRecurring({ accountId, name, amountMajor, frequency }) {
-          const amountMinor = Math.round(Number(amountMajor) * 100);
-          if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-            throw new Error("Amount must be a positive number");
-          }
-          const payment = new RecurringPayment({
-            id: this.nextId("rec"),
-            accountId,
-            name,
-            amountMinor,
-            frequency,
-            nextRun: this.calculateNextRun(frequency),
-          });
-          this.recurring.push(payment);
-          return payment;
-        }
-
-        calculateNextRun(frequency) {
-          const next = new Date();
-          if (frequency === "weekly") next.setDate(next.getDate() + 7);
-          else if (frequency === "monthly") next.setMonth(next.getMonth() + 1);
-          else if (frequency === "quarterly") next.setMonth(next.getMonth() + 3);
-          return next;
-        }
-
-        setBudget(category, amountMajor) {
-          const amountMinor = Math.round(Number(amountMajor) * 100);
-          if (!category.trim()) throw new Error("Category is required");
-          if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
-            throw new Error("Budget must be a positive number");
-          }
-          this.budgets.set(category.trim(), amountMinor);
-        }
-
-        getBalance(accountId) {
-          return this.transactions
-            .filter((transaction) => transaction.accountId === accountId)
-            .reduce((total, transaction) => total + transaction.signedAmount, 0);
-        }
-
-        getSpendByCategory() {
-          const spend = new Map();
-          for (const transaction of this.transactions) {
-            if (transaction.signedAmount < 0) {
-              const current = spend.get(transaction.category) ?? 0;
-              spend.set(transaction.category, current + Math.abs(transaction.signedAmount));
-            }
-          }
-          return spend;
-        }
-
-        getStatement(accountId, year, month) {
-          const start = new Date(Date.UTC(year, month, 1));
-          const end = new Date(Date.UTC(year, month + 1, 1));
-          const opening = this.transactions
-            .filter((transaction) => transaction.accountId === accountId && transaction.createdAt < start)
-            .reduce((total, transaction) => total + transaction.signedAmount, 0);
-          const activity = this.transactions
-            .filter((transaction) => transaction.accountId === accountId && transaction.createdAt >= start && transaction.createdAt < end)
-            .sort((a, b) => a.createdAt - b.createdAt);
-          const closing = opening + activity.reduce((total, transaction) => total + transaction.signedAmount, 0);
-          return { start, end, opening, closing, activity };
-        }
-      }
-
-      const app = new BankApp();
-      const tabOrder = ["Onboarding", "Accounts", "Transactions", "Recurring", "Budgets", "Statements"];
-
-      const tabButtons = document.getElementById("tab-buttons");
-      const sections = Array.from(document.querySelectorAll("section[data-tab]"));
-
-      function formatCurrency(minor, currency = "USD") {
-        return new Intl.NumberFormat(undefined, { style: "currency", currency }).format((minor ?? 0) / 100);
-      }
-
-      function formatDate(date) {
-        return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-      }
-
-      function setActiveTab(tabName) {
-        sections.forEach((section) => {
-          section.classList.toggle("hidden", section.dataset.tab !== tabName);
-        });
-        tabButtons.querySelectorAll("button").forEach((button) => {
-          button.classList.toggle("active", button.dataset.tab === tabName);
-        });
-      }
-
-      function renderTabs() {
-        tabButtons.innerHTML = "";
-        for (const tab of tabOrder) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.textContent = tab;
-          button.dataset.tab = tab;
-          button.className = "tab-button";
-          button.addEventListener("click", () => setActiveTab(tab));
-          tabButtons.appendChild(button);
-        }
-        tabButtons.querySelector("button")?.classList.add("active");
-      }
-
-      function renderOnboarding() {
-        const container = document.getElementById("onboarding-steps");
-        container.innerHTML = "";
-        STEPS.forEach((step, index) => {
-          const card = document.createElement("div");
-          card.className = "card";
-          card.style.padding = "0.9rem 1.1rem";
-          card.style.display = "flex";
-          card.style.alignItems = "center";
-          card.style.justifyContent = "space-between";
-          const label = document.createElement("span");
-          label.textContent = step.replace("_", " ");
-          label.style.textTransform = "capitalize";
-          const status = document.createElement("span");
-          status.className = "chip";
-          status.textContent = index < app.onboardingIndex ? "Complete" : index === app.onboardingIndex ? "Current" : "Upcoming";
-          card.append(label, status);
-          container.appendChild(card);
-        });
-      }
-
-      function renderAccounts() {
-        const tbody = document.getElementById("accounts-table");
-        const selectTargets = [
-          document.getElementById("transaction-account"),
-          document.getElementById("recurring-account"),
-          document.getElementById("statement-account"),
-        ];
-        tbody.innerHTML = "";
-        selectTargets.forEach((select) => (select.innerHTML = ""));
-        for (const account of app.accounts) {
-          const row = document.createElement("tr");
-          const nameCell = document.createElement("td");
-          nameCell.textContent = account.name;
-          const currencyCell = document.createElement("td");
-          currencyCell.textContent = account.currency;
-          const balanceCell = document.createElement("td");
-          balanceCell.textContent = formatCurrency(app.getBalance(account.id), account.currency);
-          row.append(nameCell, currencyCell, balanceCell);
-          tbody.appendChild(row);
-          selectTargets.forEach((select) => {
-            const option = document.createElement("option");
-            option.value = account.id;
-            option.textContent = account.name;
-            select.appendChild(option);
-          });
-        }
-      }
-
-      function showMessage(container, text) {
-        const message = document.createElement("p");
-        message.className = "muted";
-        message.textContent = text;
-        container.appendChild(message);
-      }
-
-      function renderTransactions() {
-        const container = document.getElementById("transaction-list");
-        container.innerHTML = "";
-        const activeAccountId = document.getElementById("transaction-account").value || app.accounts[0]?.id;
-        if (!activeAccountId) {
-          showMessage(container, "Create an account to record transactions.");
-          return;
-        }
-        const activeAccount = app.getAccount(activeAccountId);
-        if (!activeAccount) {
-          showMessage(container, "Selected account could not be found.");
-          return;
-        }
-        const currency = activeAccount.currency;
-        const transactions = app.getTransactionsForAccount(activeAccountId).slice(0, 6);
-        if (transactions.length === 0) {
-          showMessage(container, "No activity yet. Add a transaction to get started.");
-          return;
-        }
-        transactions.forEach((transaction) => {
-          const item = document.createElement("div");
-          item.className = "card";
-          item.style.padding = "0.9rem 1.1rem";
-          const top = document.createElement("div");
-          top.style.display = "flex";
-          top.style.justifyContent = "space-between";
-          top.style.alignItems = "baseline";
-          const title = document.createElement("strong");
-          title.textContent = transaction.description;
-          const amount = document.createElement("span");
-          amount.textContent = `${transaction.signedAmount >= 0 ? "+" : "-"}${formatCurrency(Math.abs(transaction.amountMinor), currency)}`;
-          amount.className = transaction.signedAmount >= 0 ? "positive" : "negative";
-          top.append(title, amount);
-          const meta = document.createElement("div");
-          meta.className = "muted";
-          meta.style.fontSize = "0.85rem";
-          meta.textContent = `${transaction.category || "Uncategorized"} · ${formatDate(transaction.createdAt)}`;
-          item.append(top, meta);
-          container.appendChild(item);
-        });
-      }
-
-      function renderRecurring() {
-        const container = document.getElementById("recurring-list");
-        container.innerHTML = "";
-        if (app.recurring.length === 0) {
-          showMessage(container, "No recurring plans yet.");
-          return;
-        }
-        app.recurring.forEach((payment) => {
-          const item = document.createElement("div");
-          item.className = "card";
-          item.style.padding = "0.9rem 1.1rem";
-          const title = document.createElement("strong");
-          const account = app.getAccount(payment.accountId);
-          title.textContent = account ? `${payment.name} · ${account.name}` : `${payment.name} · Unknown account`;
-          const subtitle = document.createElement("div");
-          subtitle.className = "muted";
-          subtitle.style.fontSize = "0.85rem";
-          const currency = account?.currency ?? "USD";
-          subtitle.textContent = `${formatCurrency(payment.amountMinor, currency)} · ${payment.frequency} · next ${formatDate(payment.nextRun)}`;
-          item.append(title, subtitle);
-          container.appendChild(item);
-        });
-      }
-
-      function renderBudgets() {
-        const container = document.getElementById("budget-summary");
-        container.innerHTML = "";
-        const spend = app.getSpendByCategory();
-        if (app.budgets.size === 0) {
-          showMessage(container, "Set a budget to start tracking.");
-          return;
-        }
-        app.budgets.forEach((limit, category) => {
-          const used = spend.get(category) ?? 0;
-          const progress = Math.min(100, Math.round((used / limit) * 100));
-          const wrap = document.createElement("div");
-          wrap.className = "stack";
-          wrap.style.padding = "0.8rem";
-          wrap.style.border = "1px solid rgba(255,255,255,0.08)";
-          wrap.style.borderRadius = "14px";
-          const top = document.createElement("div");
-          top.style.display = "flex";
-          top.style.justifyContent = "space-between";
-          const label = document.createElement("strong");
-          label.textContent = category;
-          const numbers = document.createElement("span");
-          numbers.textContent = `${formatCurrency(used)} / ${formatCurrency(limit)}`;
-          const bar = document.createElement("div");
-          bar.style.height = "6px";
-          bar.style.borderRadius = "999px";
-          bar.style.background = "rgba(255, 255, 255, 0.15)";
-          const fill = document.createElement("div");
-          fill.style.width = `${progress}%`;
-          fill.style.height = "100%";
-          fill.style.borderRadius = "999px";
-          fill.style.background = "linear-gradient(135deg, var(--accent), var(--accent-strong))";
-          bar.appendChild(fill);
-          top.append(label, numbers);
-          const status = document.createElement("span");
-          status.className = "muted";
-          status.style.fontSize = "0.85rem";
-          status.textContent = progress >= 100 ? "Budget met" : `${100 - progress}% available`;
-          wrap.append(top, bar, status);
-          container.appendChild(wrap);
-        });
-      }
-
-      function renderStatements(accountId, monthValue) {
-        const container = document.getElementById("statement-output");
-        container.innerHTML = "";
-        if (!accountId || !monthValue) {
-          showMessage(container, "Choose an account and month to see activity.");
-          return;
-        }
-        const account = app.getAccount(accountId);
-        if (!account) {
-          showMessage(container, "Selected account could not be found.");
-          return;
-        }
-        const [year, month] = monthValue.split("-").map(Number);
-        const { start, end, opening, closing, activity } = app.getStatement(accountId, year, month - 1);
-        const headline = document.createElement("p");
-        headline.className = "muted";
-        headline.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`;
-        const openingRow = document.createElement("p");
-        const openingLabel = document.createElement("strong");
-        openingLabel.textContent = "Opening:";
-        openingRow.append(openingLabel, document.createTextNode(` ${formatCurrency(opening, account.currency)}`));
-        const closingRow = document.createElement("p");
-        const closingLabel = document.createElement("strong");
-        closingLabel.textContent = "Closing:";
-        closingRow.append(closingLabel, document.createTextNode(` ${formatCurrency(closing, account.currency)}`));
-        container.append(headline, openingRow, closingRow);
-        if (activity.length === 0) {
-          showMessage(container, "No transactions this period.");
-          return;
-        }
-        const list = document.createElement("ul");
-        list.className = "list";
-        activity.forEach((transaction) => {
-          const item = document.createElement("li");
-          const amount = transaction.signedAmount >= 0
-            ? `+${formatCurrency(transaction.amountMinor, account.currency)}`
-            : `-${formatCurrency(transaction.amountMinor, account.currency)}`;
-          item.textContent = `${formatDate(transaction.createdAt)} · ${transaction.description} (${transaction.category || "Uncategorized"}) — ${amount}`;
-          list.appendChild(item);
-        });
-        container.appendChild(list);
-      }
-
-      document.getElementById("advance-onboarding").addEventListener("click", () => {
-        if (app.user.onboardingStep === "done") return;
-        app.advanceOnboarding();
-        renderOnboarding();
-      });
-
-      document.getElementById("account-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const data = new FormData(event.target);
-        const name = data.get("name").trim();
-        const currency = data.get("currency");
-        if (!name) return;
-        app.addAccount(name, currency);
-        event.target.reset();
-        renderAccounts();
-        renderTransactions();
-        renderRecurring();
-      });
-
-      document.getElementById("transaction-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const data = new FormData(event.target);
-        try {
-          app.addTransaction({
-            accountId: data.get("account"),
-            type: data.get("type"),
-            amountMajor: data.get("amount"),
-            description: data.get("description"),
-            category: data.get("category"),
-          });
-        } catch (error) {
-          alert(error.message);
-          return;
-        }
-        event.target.reset();
-        renderAccounts();
-        renderTransactions();
-        renderBudgets();
-        renderStatements(document.getElementById("statement-account").value, document.getElementById("statement-month").value);
-      });
-
-      document.getElementById("recurring-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const data = new FormData(event.target);
-        try {
-          app.addRecurring({
-            accountId: data.get("account"),
-            name: data.get("name"),
-            amountMajor: data.get("amount"),
-            frequency: data.get("frequency"),
-          });
-        } catch (error) {
-          alert(error.message);
-          return;
-        }
-        event.target.reset();
-        renderRecurring();
-      });
-
-      document.getElementById("budget-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const category = document.getElementById("budget-category").value;
-        const amount = document.getElementById("budget-amount").value;
-        try {
-          app.setBudget(category, amount);
-        } catch (error) {
-          alert(error.message);
-          return;
-        }
-        event.target.reset();
-        renderBudgets();
-      });
-
-      document.getElementById("transaction-account").addEventListener("change", () => {
-        renderTransactions();
-      });
-
-      document.getElementById("statement-form").addEventListener("submit", (event) => {
-        event.preventDefault();
-        const accountId = document.getElementById("statement-account").value;
-        const month = document.getElementById("statement-month").value;
-        renderStatements(accountId, month);
-      });
-
-      renderTabs();
-      setActiveTab(tabOrder[0]);
-      renderOnboarding();
-      renderAccounts();
-      renderTransactions();
-      renderRecurring();
-      renderBudgets();
-      renderStatements();
-      document.getElementById("year").textContent = new Date().getFullYear();
-    </script>
-  </body>
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
 </html>
