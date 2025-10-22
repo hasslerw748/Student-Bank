@@ -439,7 +439,7 @@
     function App(){
       const [participants, setParticipants] = useState(loadParticipants);
       const [classes, setClasses] = useState(loadClasses);
-      const [currentUsername, setCurrentUsername] = useState('');
+      const [loginUser, setLoginUser] = useState('');
       const [password, setPassword] = useState('');
       const [theme, setTheme] = useState(localStorage.getItem(THEME_KEY) || 'light');
       const [toast, setToast] = useState(null);
@@ -453,6 +453,11 @@
         document.documentElement.classList.toggle('dark', theme==='dark');
         localStorage.setItem(THEME_KEY, theme);
       }, [theme]);
+
+      // Clean up any previously seeded fake class (76431)
+      useEffect(() => {
+        setClasses(prev => prev.filter(c => c.id !== '76431'));
+      }, []);
 
       // Seed NEW_CLASS_CODE with all non-admin participants once
       useEffect(() => {
@@ -476,7 +481,8 @@
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
 
-      const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === currentUsername.toLowerCase()) || null, [participants, currentUsername]);
+      const [authedUser, setAuthedUser] = useState('');
+      const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === authedUser.toLowerCase()) || null, [participants, authedUser]);
       const isAdmin = currentUser && currentUser.username === ADMIN_USERNAME;
 
       function notify(msg){ setToast(msg); }
@@ -490,7 +496,7 @@
         if (!user.passwordHash || !user.salt) return notify('This account has no password set yet.');
         const hash = await sha256(user.salt + String(pw||''));
         if (hash !== user.passwordHash) return notify('Incorrect password');
-        setCurrentUsername(user.username);
+        setAuthedUser(user.username);
         setPassword('');
         notify('Logged in as '+user.name);
       }
@@ -527,7 +533,7 @@
         notify('Account created. Please log in.');
       }
 
-      function logout(){ setCurrentUsername(''); setPassword(''); }
+      function logout(){ setAuthedUser(''); setPassword(''); }
 
       // --- Admin ops ---
       function adminAdjust(userId, delta, memo){
@@ -559,11 +565,15 @@
 
       function joinClass(classId, username){
         const id = String(classId);
-        ensureClassExists(id);
-        setClasses(prev => prev.map(c => {
-          if (c.id !== id) return c;
-          if (c.members.includes(username)) return c;
-          return { ...c, members: [...c.members, username] };
+        if (!/^[0-9]+$/.test(id)) { notify('Class codes must be numbers'); return; }
+        const alreadyInSome = classes.some(c => c.members.includes(username));
+        if (alreadyInSome) { notify('User is already in a class. Remove them first to reassign.'); return; }
+        if (!classes.find(c => c.id === id)) {
+          setClasses(prev => [...prev, { id, title: null, members: [] }]);
+        }
+        setClasses(prev => prev.map(c => c.id===id ? { ...c, members: c.members.includes(username) ? c.members : [...c.members, username] } : c));
+        notify(`Joined Class #${id}`);
+      };
         }));
         notify(`Joined Class #${id}`);
       }
@@ -605,43 +615,16 @@
 
               {!isCreating ? (
                 <>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Log in with your <strong>username</strong> and <strong>password</strong>. (Demo only; data stays in your browser.)</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Log in with your <strong>username</strong> and <strong>password</strong>.</p>
                   <label className="text-sm block mb-1">Username</label>
-                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="yourname" value={currentUsername} onChange={e=>setCurrentUsername(e.target.value)} />
-                  <label className="text-sm block mb-1">Password</label>
-                  <input type="password" className="border w-full p-2 rounded mb-4 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
-                  <button className="w-full bg-indigo-600 text-white py-2 rounded mb-3" onClick={()=>login(currentUsername, password)}>Login</button>
-                  <button className="w-full bg-slate-200 dark:bg-slate-700 py-2 rounded" onClick={()=>setIsCreating(true)}>Create an account</button>
-
-                  <div className="mt-6 flex items-center justify-between text-xs text-slate-500">
-                    <button className="underline" onClick={()=>{ localStorage.removeItem(DB_KEY); localStorage.removeItem(CLASSES_KEY); location.reload(); }}>Reset demo</button>
-                    <div className="flex items-center gap-2">
-                      <button className="underline" onClick={()=>{
-                        const blob = new Blob([JSON.stringify({participants, classes},null,2)], { type:'application/json' });
-                        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='teenbank_backup.json'; a.click(); URL.revokeObjectURL(url);
-                      }}>Export</button>
-                      <label className="underline cursor-pointer">
-                        Import
-                        <input type="file" accept="application/json" className="hidden" onChange={async e=>{
-                          const file=e.target.files[0]; if(!file) return; const text=await file.text();
-                          try{ const json = JSON.parse(text); if(json.participants) setParticipants(migrateIfNeeded(JSON.stringify(json.participants))); if(json.classes) setClasses(json.classes); }catch(err){ alert('Import failed: '+err.message);} }} />
-                      </label>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs text-slate-500">Tip: Admin login: <span className="font-mono">@{ADMIN_USERNAME}</span> / <span className="font-mono">{ADMIN_DEFAULT_PASSWORD}</span></p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Create a new account. Pick a unique username.</p>
-                  <label className="text-sm block mb-1">Username</label>
-                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="yourname" value={currentUsername} onChange={e=>setCurrentUsername(e.target.value)} />
+                  <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="yourname" value={loginUser} onChange={e=>setLoginUser(e.target.value)} />
                   <label className="text-sm block mb-1">Display Name</label>
                   <input className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="e.g., Ava" value={newName} onChange={e=>setNewName(e.target.value)} />
                   <label className="text-sm block mb-1">Password</label>
                   <input type="password" className="border w-full p-2 rounded mb-3 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
                   <label className="text-sm block mb-1">Confirm Password</label>
                   <input type="password" className="border w-full p-2 rounded mb-4 dark:bg-slate-900 dark:border-slate-700" placeholder="••••••••" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} />
-                  <button className="w-full bg-emerald-600 text-white py-2 rounded mb-3" onClick={()=>createAccount(currentUsername, newName, password, confirmPw)}>Create Account</button>
+                  <button className="w-full bg-emerald-600 text-white py-2 rounded mb-3" onClick={()=>createAccount(loginUser, newName, password, confirmPw)}>Create Account</button>
                   <button className="w-full bg-slate-200 dark:bg-slate-700 py-2 rounded" onClick={()=>setIsCreating(false)}>Back to login</button>
                 </>
               )}
@@ -665,7 +648,7 @@
                 const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='teenbank_backup.json'; a.click(); URL.revokeObjectURL(url);
               }}>Export</button>
               <label className="px-3 py-2 text-sm rounded bg-slate-200 dark:bg-slate-700 cursor-pointer">Import<input type="file" accept="application/json" className="hidden" onChange={async e=>{ const file=e.target.files[0]; if(!file) return; const text=await file.text(); try{ const json = JSON.parse(text); if(json.participants) setParticipants(migrateIfNeeded(JSON.stringify(json.participants))); if(json.classes) setClasses(json.classes);}catch(err){ alert('Import failed: '+err.message);} }} /></label>
-              <button className="px-3 py-2 text-sm rounded bg-slate-800 text-white" onClick={()=>{ setCurrentUsername(''); setPassword(''); }}>Logout</button>
+              <button className="px-3 py-2 text-sm rounded bg-slate-800 text-white" onClick={()=>{ setAuthedUser(''); setPassword(''); }}>Logout</button>
             </div>
           </header>
 
@@ -709,9 +692,7 @@
           )}
           </main>
 
-          <footer className="max-w-5xl mx-auto mt-8 text-sm text-slate-500">
-            Demo only. Real authentication and multi-user storage require a backend/API. Passwords are hashed client-side for demonstration.
-          </footer>
+          
 
           {toast && <Toast text={toast} onClose={()=>setToast(null)} />}
         </div>
