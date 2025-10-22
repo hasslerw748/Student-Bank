@@ -30,6 +30,9 @@
     const CLASSES_KEY = 'teenbank_classes_v1';   // classes store
     const THEME_KEY = 'teenbank_theme';
 
+    // One-time class seed code (you asked me to add everyone into a new code)
+    const NEW_CLASS_CODE = '76431'; // <- your new class code
+
     // Seed data (no passwords for normal users; admin added at load)
     const DEFAULT_PARTICIPANTS = [
       { id: 1, username: 'ava',  name: 'Ava',  subscriptionActive: false, weeklyDeductions: [], goals: [], budgets: {}, transactions: [{amount: 50, memo: 'Starting balance', ts: Date.now()-3_600_000}] },
@@ -157,9 +160,7 @@
         const t = q.trim().toLowerCase();
         if(!t) return base;
         return base.filter(p => (p.name+' '+p.username).toLowerCase().includes(t));
-      }, [participants, classes, q]); if(!t) return participants;
-        return participants.filter(p => (p.name+' '+p.username).toLowerCase().includes(t));
-      }, [participants, q]);
+      }, [participants, classes, q]);
 
       return (
         <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-6">
@@ -327,25 +328,7 @@
         updateUser(u => { const b = { ...(u.budgets||{}) }; delete b[k]; return {...u, budgets: b}; });
       }
 
-      function joinClass(classId, username){
-        const id = String(classId);
-        // Enforce: a student may only be in ONE class until an admin removes them
-        const alreadyInSomeClass = classes.some(c => c.members.includes(username));
-        if (alreadyInSomeClass) { notify('You are already in a class. Ask an admin to remove you to join a different one.'); return; }
-        // ensure class exists
-        if (!classes.find(c => c.id === id)) {
-          setClasses(prev => [...prev, { id, title: null, members: [] }]);
-        }
-        setClasses(prev => prev.map(c => {
-          if (c.id !== id) return c;
-          if (c.members.includes(username)) return c;
-          return { ...c, members: [...c.members, username] };
-        }));
-        notify(`Joined Class #${id}`);
-      }
-        onJoinClass(code, user.username);
-        setClassCode('');
-      }
+      
 
       return (
         <section className="md:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-6">
@@ -359,7 +342,7 @@
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-sm">Join a class:</label>
               <input className="border p-2 rounded w-40 dark:bg-slate-900 dark:border-slate-700" placeholder="Class number" value={classCode} onChange={e=>setClassCode(e.target.value)} />
-              <button className="bg-indigo-600 text-white px-3 py-2 rounded" onClick={joinClass}>Join</button>
+              <button className="bg-indigo-600 text-white px-3 py-2 rounded" onClick={()=>{ const code = String(classCode).trim(); if(!code || /[^0-9]/.test(code)){ alert('Enter a numeric class number'); return; } onJoinClass(code, user.username); setClassCode(''); }}>Join</button>
               <span className="text-xs text-slate-500">(Admin can see class rosters. Students cannot.)</span>
             </div>
           </div>
@@ -470,6 +453,15 @@
         document.documentElement.classList.toggle('dark', theme==='dark');
         localStorage.setItem(THEME_KEY, theme);
       }, [theme]);
+
+      // Seed NEW_CLASS_CODE with all non-admin participants once
+      useEffect(() => {
+        setClasses(prev => {
+          if (prev.some(c => c.id === NEW_CLASS_CODE)) return prev;
+          const members = participants.filter(u => u.username !== ADMIN_USERNAME).map(u => u.username);
+          return [...prev, { id: NEW_CLASS_CODE, title: 'Auto Class', members }];
+        });
+      }, [participants]);
 
       // Ensure admin has a password
       useEffect(() => {
