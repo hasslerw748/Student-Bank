@@ -25,7 +25,7 @@
     const ADMIN_DEFAULT_PASSWORD = 'admin123';
 
     const DB_KEY = 'teenbank_participants_v4';   // participants/users
-    const CLASSES_KEY = 'teenbank_classes_v2';   // classes store
+    theCLASSES_KEY = 'teenbank_classes_v2';      // classes store
     const THEME_KEY = 'teenbank_theme';
 
     const DEFAULT_PARTICIPANTS = [];
@@ -92,12 +92,12 @@
 
     function loadClasses(){
       try {
-        const raw = localStorage.getItem(CLASSES_KEY);
+        const raw = localStorage.getItem(theCLASSES_KEY);
         const arr = raw ? JSON.parse(raw) : [];
         return arr.map(c => ({ id: String(c.id), title: c.title || null, members: Array.isArray(c.members)? c.members: [] }));
       } catch(e){ return []; }
     }
-    const saveClasses = (list) => localStorage.setItem(CLASSES_KEY, JSON.stringify(list));
+    const saveClasses = (list) => localStorage.setItem(theCLASSES_KEY, JSON.stringify(list));
 
     // ------------------- UI primitives -------------------
     function Toast({ text, onClose }){
@@ -417,166 +417,304 @@
       );
     }
 
-    // ------------------- In-browser TeenBank "AI" (no server needed) -------------------
-    function teenbankAI(input, history=[]) {
-      const text = String(input||'').trim();
-      if (!text) return "Ask me anything about budgeting or simple business math.";
+    // ------------------- Enhanced in-browser TeenBank AI (fallback, no server needed) -------------------
+    function teenbankAI(input, history = []) {
+      const text = String(input || '').trim();
+      if (!text) return "Ask me budgeting or business math. Try: 'NPV cash flows ... at 8%' or 'Loan 12000 at 6% for 36 months'.";
 
       // helpers
-      const num = (s) => parseFloat((s||'').replace(/[$,]/g,''));
-      const findMoney = () => {
-        const m = text.match(/[-+]?\d{1,3}(?:,\d{3})*(?:\.\d+)?|[-+]?\d+(?:\.\d+)?/g);
-        return (m||[]).map(num).filter(v => !Number.isNaN(v));
+      const num = (s) => parseFloat(String(s||'').replace(/[$,%\s,]/g,''));
+      const moneyList = (txt = text) => {
+        const m = txt.match(/-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?/g);
+        return (m || []).map(num).filter(v => !Number.isNaN(v));
       };
-      const money = findMoney();
+      const dollars = (n) => (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'});
+      const pctStr = (n) => `${(Number(n)*100).toFixed(2)}%`;
 
-      // Budget split (50/30/20 or custom)
+      // Finance math
+      const pmt = (ratePer, nper, pv, fv = 0, type = 0) => {
+        if (ratePer === 0) return - (pv + fv) / nper;
+        const r = ratePer;
+        const pow = Math.pow(1 + r, nper);
+        return - (r * (pv * pow + fv)) / ((1 + r * type) * (pow - 1));
+      };
+
+      const npv = (rate, cashFlows) => {
+        const r = Number(rate);
+        return cashFlows.reduce((s, cf, i) => s + (cf / Math.pow(1 + r, i)), 0);
+      };
+
+      const irr = (cashFlows, guess = 0.1) => {
+        let x0 = guess, x1 = guess + 0.05;
+        const f = (r) => npv(r, cashFlows);
+        for (let i = 0; i < 50; i++) {
+          const y0 = f(x0), y1 = f(x1);
+          if (Math.abs(y1 - y0) < 1e-12) break;
+          const x2 = x1 - y1 * (x1 - x0) / (y1 - y0);
+          if (!isFinite(x2) || Math.abs(x2 - x1) < 1e-7) return x2;
+          x0 = x1; x1 = x2;
+        }
+        return x1;
+      };
+
+      const CAGR = (start, end, years) => Math.pow(end/start, 1/years) - 1;
+
+      const parseCashFlows = (txt=text) => {
+        const m = txt.match(/-?\d[\d,]*(?:\.\d+)?/g);
+        if (!m) return null;
+        const arr = m.map(num);
+        if (/cash\s*flows|flows|series|,/.test(txt)) return arr;
+        return null;
+      };
+
+      // Complex intents
+      if (/npv/i.test(text)) {
+        const flows = parseCashFlows();
+        const rateMatch = text.match(/(?:at|rate|discount)\s*(\d+(\.\d+)?)\s*%/i);
+        if (flows && rateMatch) {
+          const r = (parseFloat(rateMatch[1])||0)/100;
+          const val = npv(r, flows);
+          return `NPV at ${pctStr(r)} = ${dollars(val)}\n(Flows: ${flows.join(', ')})`;
+        }
+        return `Tell me the cash flows and a discount rate, e.g., "NPV cash flows -1000, 300, 400, 500 at 8%".`;
+      }
+
+      if (/\birr\b/i.test(text)) {
+        const flows = parseCashFlows();
+        if (flows) {
+          const rate = irr(flows);
+          if (isFinite(rate)) return `IRR ≈ ${pctStr(rate)} for flows: ${flows.join(', ')}`;
+          return `I couldn't find a numeric IRR (flows may not cross zero). Try a different series.`;
+        }
+        return `Give me cash flows, e.g., "IRR -1000, 300, 400, 500".`;
+      }
+
+      if (/loan|payment|pmt|amort/i.test(text)) {
+        const nums = moneyList();
+        const principal = nums[0] ?? 10000;
+        let ratePct = nums[1] ?? 5;
+        let term = nums[2] ?? 36;
+        const perMonth = /month|mo\b/i.test(text) || (!/year|yr/i.test(text) && term <= 360);
+        const apr = ratePct > 1 ? ratePct / 100 : ratePct;
+        const nper = perMonth ? term : term * 12;
+        const r = apr / 12;
+        const pay = pmt(r, nper, principal);
+        let bal = principal;
+        const rows = [];
+        for (let i = 1; i <= Math.min(nper, 6); i++) {
+          const interest = bal * r;
+          const principalPart = -pay - interest;
+          bal = Math.max(0, bal - principalPart);
+          rows.push(`#${i}: pay ${dollars(-pay)}, interest ${dollars(interest)}, principal ${dollars(principalPart)}, bal ${dollars(bal)}`);
+        }
+        return [
+          `Payment ~ ${dollars(-pay)} / month for ${nper} months at ${pctStr(apr)} APR on ${dollars(principal)}.`,
+          `First payments (sample):`,
+          ...rows
+        ].join('\n');
+      }
+
+      if (/compound|future\s*value|fv\b/i.test(text)) {
+        const nums = moneyList();
+        const P = nums[0] ?? 1000;
+        const r = (nums[1] ?? 5)/100;
+        const t = nums[2] ?? 5;
+        const n = /month/i.test(text) ? 12 : /quarter/i.test(text) ? 4 : 1;
+        const sched = [];
+        for (let year = 1; year <= Math.min(t, 5); year++) {
+          const A = P * Math.pow(1 + r/n, n*year);
+          sched.push(`Year ${year}: ${dollars(A)}`);
+        }
+        const end = P * Math.pow(1 + r/n, n*t);
+        return [`FV ≈ ${dollars(end)} (${(n)}×/yr, ${pctStr(r)} for ${t}y).`, ...sched].join('\n');
+      }
+
+      if (/roi|cagr/i.test(text)) {
+        const nums = moneyList();
+        if (/cagr/i.test(text) && nums.length >= 3) {
+          const rate = CAGR(nums[0], nums[1], nums[2]);
+          return `CAGR ≈ ${pctStr(rate)} (from ${dollars(nums[0])} to ${dollars(nums[1])} over ${nums[2]} years).`;
+        }
+        if (nums.length >= 2) {
+          const roi = (nums[1] - nums[0]) / Math.abs(nums[0]);
+          return `ROI ≈ ${pctStr(roi)} (from ${dollars(nums[0])} to ${dollars(nums[1])}).`;
+        }
+        return `Try “ROI 800 to 1200” or “CAGR 5000 to 7000 in 3 years”.`;
+      }
+
+      if (/break\s*-?\s*even/i.test(text)) {
+        const nums = moneyList();
+        const sorted = [...nums].sort((a,b)=>a-b);
+        const variable = sorted[0] ?? 5;
+        const price = sorted[1] ?? 15;
+        const fixed = sorted[sorted.length-1] ?? 500;
+        const target = /target|profit/i.test(text) ? (sorted[sorted.length-2] ?? 0) : 0;
+        if (price <= variable) return `Price must exceed variable cost. Example: fixed 500, price 20, variable 8, target 0.`;
+        const qty = Math.ceil((fixed + target) / (price - variable));
+        return `Break-even qty ≈ ${qty} (fixed ${fixed}, price ${price}, variable ${variable}${target?`, target profit ${target}`:''}).`;
+      }
+
+      if (/markup|markdown|tax|sales\s*tax/i.test(text)) {
+        const nums = moneyList();
+        if (/tax|sales\s*tax/i.test(text) && nums.length >= 2) {
+          const base = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
+          return `With sales tax ${pctStr(rate)}, total = ${dollars(base*(1+rate))}.`;
+        }
+        if (/markup/i.test(text) && nums.length >= 2) {
+          const cost = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
+          return `Markup ${pctStr(rate)} → price = ${dollars(cost*(1+rate))}.`;
+        }
+        if (/markdown/i.test(text) && nums.length >= 2) {
+          const price = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
+          return `Markdown ${pctStr(rate)} → sale price = ${dollars(price*(1-rate))}.`;
+        }
+      }
+
+      if (/percent\s*change|increase|decrease/i.test(text)) {
+        const nums = moneyList();
+        if (nums.length >= 2) {
+          const from = nums[0], to = nums[1];
+          const change = (to - from) / Math.abs(from);
+          return `Percent change from ${dollars(from)} to ${dollars(to)} ≈ ${pctStr(change)}.`;
+        }
+      }
+
+      if (/income|rent|utilities|food|grocer|gas|transport|leftover|after\s*fixed/i.test(text)) {
+        const nums = moneyList();
+        const income = nums[0] ?? 1000;
+        const fixed = nums.slice(1).reduce((s, n) => s + n, 0);
+        const leftover = Math.max(0, income - fixed);
+        const needs = leftover * 0.5, wants = leftover * 0.3, save = leftover * 0.2;
+        return [
+          `Income ${dollars(income)} − fixed ${dollars(fixed)} = leftover ${dollars(leftover)}.`,
+          `Split leftover 50/30/20 → Needs ${dollars(needs)}, Wants ${dollars(wants)}, Save ${dollars(save)}.`,
+          `Want me to convert to weekly/day amounts or set goal timing?`
+        ].join('\n');
+      }
+
       if (/split|budget|50\/?30\/?20|percent|percentage/i.test(text)) {
-        const amount = money.find(v=>v>0) ?? 100;
+        const nums = moneyList();
+        const amount = nums.find(v=>v>0) ?? 100;
         const needs = amount*0.5, wants = amount*0.3, save = amount*0.2;
         return [
-          `Try 50/30/20 on ${fmtUSD(amount)}:`,
-          `• Needs (50%): ${fmtUSD(needs)}`,
-          `• Wants (30%): ${fmtUSD(wants)}`,
-          `• Save (20%): ${fmtUSD(save)}`,
+          `Try 50/30/20 on ${dollars(amount)}:`,
+          `• Needs (50%): ${dollars(needs)}`,
+          `• Wants (30%): ${dollars(wants)}`,
+          `• Save (20%): ${dollars(save)}`,
           `Want me to tailor by your rent, food, and goal?`
         ].join('\n');
       }
 
-      // Savings goal timeline: "save 500 by 3 months", or "$10/week"
       if (/save|goal|by|per\s*(week|month)/i.test(text)) {
-        const amt = money[0];
-        const per = /per\s*week/i.test(text) ? 'week' : /per\s*month/i.test(text) ? 'month' : null;
-        const rate = per==='week' ? (money[1] ?? 10) : per==='month' ? (money[1] ?? 40) : null;
-        if (amt && per && rate) {
-          const weeks = per==='week' ? Math.ceil(amt/rate) : Math.ceil((amt/rate)*4);
-          return `If you save ${fmtUSD(rate)} per ${per}, you’ll hit ${fmtUSD(amt)} in about ${weeks} weeks. Want an auto-deposit plan?`;
-        }
-        if (amt && money[1]) {
-          const perWeek = money[1];
-          const w = Math.ceil(amt/perWeek);
-          return `At ${fmtUSD(perWeek)}/week, you’ll reach ${fmtUSD(amt)} in ~${w} weeks. Want me to split that per day?`;
+        const nums = moneyList();
+        const amt = nums[0], perWeek = nums[1];
+        if (amt && perWeek) {
+          const w = Math.ceil(amt / perWeek);
+          return `At ${dollars(perWeek)}/week, you’ll reach ${dollars(amt)} in ~${w} weeks. Want me to split that per day?`;
         }
       }
 
-      // Break-even: fixed, variable, price
-      if (/break\s*-?\s*even|fixed|variable|margin/i.test(text)) {
-        // Try to infer fixed cost (largest), price (middle), variable (smallest)
-        const sorted = [...money].sort((a,b)=>a-b);
-        if (sorted.length >= 3) {
-          const variable = sorted[0], price = sorted[1], fixed = sorted[sorted.length-1];
-          if (price > variable) {
-            const qty = Math.ceil(fixed / (price - variable));
-            return `Break-even ≈ ${qty} units.\nFormula: fixed ÷ (price − variable) = ${fixed} ÷ (${price} − ${variable}).`;
-          }
-        }
-        return `Give me fixed cost, price per unit, and variable cost per unit. I’ll compute break-even units.`;
-      }
-
-      // Profit = revenue - expenses
       if (/profit|revenue|expenses/i.test(text)) {
-        if (money.length >= 2) {
-          const rev = money[0], exp = money[1];
-          return `Profit = Revenue − Expenses = ${fmtUSD(rev)} − ${fmtUSD(exp)} = ${fmtUSD(rev-exp)}.`;
+        const nums = moneyList();
+        if (nums.length >= 2) {
+          const rev = nums[0], exp = nums[1];
+          return `Profit = Revenue − Expenses = ${dollars(rev)} − ${dollars(exp)} = ${dollars(rev-exp)}.`;
         }
         return `Tell me your revenue and expenses and I’ll compute profit (and margin).`;
       }
 
-      // Simple interest or quick compound estimate
       if (/interest|apr|rate|compound/i.test(text)) {
-        const P = money[0] ?? 1000;
-        const r = (money[1] ?? 5)/100; // %
-        const t = (money[2] ?? 1);     // years
+        const nums = moneyList();
+        const P = nums[0] ?? 1000;
+        const r = (nums[1] ?? 5)/100;
+        const t = (nums[2] ?? 1);
         if (/compound/i.test(text)) {
           const n = /month/i.test(text) ? 12 : /quarter/i.test(text) ? 4 : 1;
           const A = P * Math.pow(1 + r/n, n*t);
-          return `Compound estimate: ${fmtUSD(P)} → ${fmtUSD(A)} in ${t} year(s) at ${(r*100).toFixed(2)}% (${n}×/yr).`;
+          return `Compound estimate: ${dollars(P)} → ${dollars(A)} in ${t} year(s) at ${(r*100).toFixed(2)}% (${n}×/yr).`;
         } else {
           const I = P * r * t;
-          return `Simple interest: I = P·r·t = ${fmtUSD(P)} × ${(r*100).toFixed(2)}% × ${t} = ${fmtUSD(I)}. Total ≈ ${fmtUSD(P+I)}.`;
+          return `Simple interest: I = P·r·t = ${dollars(P)} × ${(r*100).toFixed(2)}% × ${t} = ${dollars(I)}. Total ≈ ${dollars(P+I)}.`;
         }
       }
 
-      // Percent-of questions like "what is 15% of 80"
       if (/%\s*of|\bpercent of\b/i.test(text)) {
-        const pct = money.find(v => v<=100 && v>0) ?? 10;
-        const base = money.find(v => v>100) ?? money[1] ?? 100;
-        return `${pct}% of ${fmtUSD(base)} is ${fmtUSD(base * (pct/100))}.`;
+        const nums = moneyList();
+        const pct = nums.find(v => v<=100 && v>0) ?? 10;
+        const base = nums.find(v => v>100) ?? nums[1] ?? 100;
+        return `${pct}% of ${dollars(base)} is ${dollars(base * (pct/100))}.`;
       }
 
-      // Fallback
-      return `Tell me your income and a goal, or ask "break-even", "50/30/20", or "how do I split $X?". I’ll calculate it step-by-step.`;
+      return `I can do NPV/IRR, PMT/amortization, compound schedules, ROI/CAGR, break-even with target profit, markup/tax, and budget splits. Give me numbers and keywords.`;
     }
 
-    // ------------------- Student Chatbox Panel (card-style, matches account boxes) -------------------
+    // ------------------- Chatbox Panel (server-first, fallback to teenbankAI) -------------------
     function ChatboxPanel() {
-      const [input, setInput] = React.useState('');
-      const [messages, setMessages] = React.useState([
-        { role: 'assistant', content: "Hi! I’m TeenBank’s helper. Ask about budgeting, saving, or simple business math—I’ll show steps." }
+      const [messages, setMessages] = useState([
+        { role: 'assistant', content: "Hey! I’m TeenBank’s helper. Ask me budgeting or business math questions—try 'Loan 12000 at 6% for 36 months' or 'NPV -1000,300,400,500 at 8%'." }
       ]);
-      const [loading, setLoading] = React.useState(false);
+      const [input, setInput] = useState('');
+      const [loading, setLoading] = useState(false);
 
       async function send() {
         if (!input.trim()) return;
-        const userMsg = { role: 'user', content: input };
+        const userMsg = { role: 'user', content: input.trim() };
         setMessages(m => [...m, userMsg]);
         setInput('');
         setLoading(true);
-        // NO network call — instant in-browser reply:
-        setTimeout(() => {
-          try {
-            const reply = teenbankAI(userMsg.content, messages);
+
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages.concat(userMsg) })
+          });
+
+          if (!res.ok) throw new Error('Bad status');
+          const data = await res.json();
+          const reply = data?.reply?.trim();
+          if (reply) {
             setMessages(m => [...m, { role: 'assistant', content: reply }]);
-          } finally {
-            setLoading(false);
+          } else {
+            // fallback if empty
+            const local = teenbankAI(userMsg.content, messages);
+            setMessages(m => [...m, { role: 'assistant', content: local }]);
           }
-        }, 200);
+        } catch {
+          // Automatic offline fallback
+          const local = teenbankAI(userMsg.content, messages);
+          setMessages(m => [...m, { role: 'assistant', content: local }]);
+        } finally {
+          setLoading(false);
+        }
       }
 
       return (
-        <section
-          className="md:col-span-1 bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm flex flex-col"
-          style={{ minHeight: '28rem' }}
-        >
-          <h3 className="text-lg font-semibold mb-3">TeenBank Help</h3>
-
-          <div className="flex-1 overflow-y-auto rounded border border-slate-200 dark:border-slate-700 p-3 space-y-2 bg-slate-50 dark:bg-slate-900">
+        <aside className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm flex flex-col h-[480px]">
+          <h3 className="text-lg font-semibold mb-2">TeenBank AI</h3>
+          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
             {messages.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-                <span
-                  className={`inline-block px-3 py-2 rounded-xl ${
-                    m.role === 'user'
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 dark:bg-slate-700 text-gray-900 dark:text-slate-100'
-                  }`}
-                >
+                <span className={`inline-block px-3 py-2 rounded-xl text-sm ${m.role === 'user'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100'}`}>
                   {m.content}
                 </span>
               </div>
             ))}
-            {loading && <div className="text-xs text-gray-500">Typing...</div>}
+            {loading && <div className="text-xs text-slate-500">Typing…</div>}
           </div>
-
           <div className="mt-3 flex">
             <input
+              className="flex-1 border rounded-l-xl px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+              placeholder="Ask about budgets, goals, or business math…"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && send()}
-              placeholder="Ask about budgeting or saving..."
-              className="flex-1 border rounded-l-xl px-3 py-2 text-sm text-gray-900 dark:text-slate-100 dark:bg-slate-900 dark:border-slate-700"
+              onChange={e=>setInput(e.target.value)}
+              onKeyDown={e=>e.key==='Enter' && send()}
             />
-            <button
-              onClick={send}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-r-xl text-sm"
-            >
-              Send
-            </button>
+            <button className="bg-indigo-600 text-white px-4 rounded-r-xl" onClick={send}>Send</button>
           </div>
-
-          <p className="mt-2 text-xs text-slate-500">
-            Try: “Split $120 with 50/30/20” · “Break-even with 500 fixed, 20 price, 8 variable” · “Interest on $1000 at 5% for 2 years”
-          </p>
-        </section>
+        </aside>
       );
     }
 
@@ -585,7 +723,7 @@
       const [participants, setParticipants] = useState(loadParticipants);
       const [classes, setClasses] = useState(loadClasses);
       const [loginUser, setLoginUser] = useState('');
-      const [password, setPassword] = useState(''); 
+      const [password, setPassword] = useState('');
       const [authedUser, setAuthedUser] = useState('');
       const [theme, setTheme] = useState(localStorage.getItem(THEME_KEY) || 'light');
       const [toast, setToast] = useState(null);
@@ -610,10 +748,8 @@
             setParticipants(prev => prev.map(u => u.username===ADMIN_USERNAME ? { ...u, salt, passwordHash: hash } : u));
           }
         })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
-
-      // Clean up any previously seeded fake class code
-      useEffect(() => { setClasses(prev => prev.filter(c => c.id !== '76431')); }, []);
 
       const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === authedUser.toLowerCase()) || null, [participants, authedUser]);
       const isAdmin = currentUser && currentUser.username === ADMIN_USERNAME;
@@ -658,10 +794,7 @@
           transactions: [],
         };
         setParticipants(prev => [...prev, user]);
-        setPassword('');
-        setConfirmPw('');
-        setNewName('');
-        setIsCreating(false);
+        setPassword(''); setConfirmPw(''); setNewName(''); setIsCreating(false);
         notify('Account created. Please log in.');
       }
 
@@ -785,43 +918,44 @@
 
           <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
             {isAdmin ? (
-              <AdminPanel
-                participants={participants}
-                classes={classes}
-                onAdjust={adminAdjust}
-                onSubscribe={adminSub}
-                onCancel={adminCancel}
-                onDelete={adminDelete}
-                onRenameClass={renameClass}
-                onRemoveFromClass={removeFromClass}
-              />
+              <>
+                <AdminPanel
+                  participants={participants}
+                  classes={classes}
+                  onAdjust={adminAdjust}
+                  onSubscribe={adminSub}
+                  onCancel={adminCancel}
+                  onDelete={adminDelete}
+                  onRenameClass={renameClass}
+                  onRemoveFromClass={removeFromClass}
+                />
+                <aside className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
+                  <h3 className="text-lg font-semibold">Unassigned Participants</h3>
+                  <ul className="space-y-2 max-h-[420px] overflow-auto pr-1">
+                    {participants.filter(p => !classes.some(c => c.members.includes(p.username))).map(p => (
+                      <li key={p.id} className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 p-2 rounded">
+                        <div>
+                          <div className="font-medium text-sm">{p.name}</div>
+                          <div className="text-xs text-slate-500">@{p.username}</div>
+                        </div>
+                        <div className="text-xs">{fmtUSD(computeBalance(p))}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </aside>
+              </>
             ) : (
-              <UserPanel
-                user={currentUser}
-                updateUser={(mut)=> setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u)) }
-                applyWeeklyAll={applyMyWeeklyNow}
-                onJoinClass={joinClass}
-              />
-            )}
-
-            {/* Chatbox as a matching card in the right column (students only) */}
-            {!isAdmin && <ChatboxPanel />}
-
-            {isAdmin && (
-              <aside className="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm space-y-4">
-                <h3 className="text-lg font-semibold">Unassigned Participants</h3>
-                <ul className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                  {participants.filter(p => !classes.some(c => c.members.includes(p.username))).map(p => (
-                    <li key={p.id} className="flex items-center justify-between bg-slate-100 dark:bg-slate-900 p-2 rounded">
-                      <div>
-                        <div className="font-medium text-sm">{p.name}</div>
-                        <div className="text-xs text-slate-500">@{p.username}</div>
-                      </div>
-                      <div className="text-xs">{fmtUSD(computeBalance(p))}</div>
-                    </li>
-                  ))}
-                </ul>
-              </aside>
+              <>
+                {/* Student's main panel */}
+                <UserPanel
+                  user={currentUser}
+                  updateUser={(mut)=> setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u)) }
+                  applyWeeklyAll={applyMyWeeklyNow}
+                  onJoinClass={joinClass}
+                />
+                {/* Chat aligned as a right column card */}
+                <ChatboxPanel />
+              </>
             )}
           </main>
 
@@ -830,7 +964,8 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
