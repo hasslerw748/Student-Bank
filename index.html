@@ -17,7 +17,6 @@
 <body class="h-full bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
   <div id="root" class="h-full"></div>
 
-  <!-- === Your original app code (unchanged) ============================== -->
   <script type="text/babel">
     const { useEffect, useMemo, useState } = React;
 
@@ -426,6 +425,82 @@
       );
     }
 
+    // ------------------- Student Chatbox (appears when student logged in) -------------------
+    function Chatbox() {
+      const [open, setOpen] = React.useState(false);
+      const [input, setInput] = React.useState('');
+      const [messages, setMessages] = React.useState([
+        { role: 'assistant', content: "Hi! I’m TeenBank’s helper. Ask about budgeting, saving, or simple business math—I’ll show steps." }
+      ]);
+      const [loading, setLoading] = React.useState(false);
+
+      // Auto-open once per session
+      React.useEffect(() => {
+        if (!sessionStorage.getItem('teenbank_chat_seen')) {
+          setOpen(true);
+          sessionStorage.setItem('teenbank_chat_seen', '1');
+        }
+      }, []);
+
+      async function send() {
+        if (!input.trim()) return;
+        const userMsg = { role: 'user', content: input };
+        setMessages(m => [...m, userMsg]);
+        setInput('');
+        setLoading(true);
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: messages.concat(userMsg) })
+          });
+          const data = await res.json();
+          setMessages(m => [...m, { role: 'assistant', content: data.reply ?? "Hmm, I didn’t get a reply." }]);
+        } catch {
+          setMessages(m => [...m, { role: 'assistant', content: "I couldn’t connect to the server." }]);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      return (
+        <>
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="fixed bottom-5 right-5 bg-indigo-600 text-white px-4 py-2 rounded-full shadow"
+          >
+            {open ? 'Close' : 'Chat'}
+          </button>
+
+          {open && (
+            <div className="fixed bottom-20 right-5 bg-white dark:bg-slate-800 text-sm w-80 h-96 shadow-xl rounded-2xl flex flex-col">
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {messages.map((m, i) => (
+                  <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
+                    <span className={`inline-block px-3 py-2 rounded-xl ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-900 dark:text-slate-100'}`}>
+                      {m.content}
+                    </span>
+                  </div>
+                ))}
+                {loading && <div className="text-xs text-gray-500">Typing...</div>}
+              </div>
+
+              <div className="border-t p-2 flex">
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && send()}
+                  placeholder="Ask about budgeting or saving..."
+                  className="flex-1 border rounded-l-xl px-2 py-1 text-gray-900 dark:text-slate-100 dark:bg-slate-900"
+                />
+                <button onClick={send} className="bg-indigo-600 text-white px-3 rounded-r-xl">Send</button>
+              </div>
+            </div>
+          )}
+        </>
+      );
+    }
+
     // ------------------- App -------------------
     function App(){
       const [participants, setParticipants] = useState(loadParticipants);
@@ -449,7 +524,6 @@
       // Ensure admin has a password
       useEffect(() => {
         (async () => {
-          // If admin missing or missing creds, set them
           const admin = participants.find(u => u.username === ADMIN_USERNAME);
           if (admin && (!admin.passwordHash || !admin.salt)) {
             const salt = admin.salt || randomSalt();
@@ -460,7 +534,7 @@
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
 
-      // Clean up any previously seeded fake class code (from earlier versions)
+      // Clean up any previously seeded fake class code
       useEffect(() => { setClasses(prev => prev.filter(c => c.id !== '76431')); }, []);
 
       const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === authedUser.toLowerCase()) || null, [participants, authedUser]);
@@ -506,7 +580,6 @@
           transactions: [],
         };
         setParticipants(prev => [...prev, user]);
-        // Do NOT auto-login; keep them on login screen
         setPassword('');
         setConfirmPw('');
         setNewName('');
@@ -539,7 +612,6 @@
       function joinClass(classId, username){
         const id = String(classId);
         if (!/^[0-9]+$/.test(id)) { notify('Class codes must be numbers'); return; }
-        // one-class-per-student
         const alreadyInSome = classes.some(c => c.members.includes(username));
         if (alreadyInSome) { notify('User is already in a class. Remove them first to reassign.'); return; }
         if (!classes.find(c => c.id === id)) {
@@ -673,89 +745,16 @@
           )}
           </main>
 
+          {/* Show the Chatbox only for students */}
+          {!isAdmin && <Chatbox />}
+
           {toast && <Toast text={toast} onClose={()=>setToast(null)} />}
         </div>
       );
     }
+
+    // Single render
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
-  <!-- === End of your original app code =================================== -->
-
-  <!-- === New: TeenBank AI Chatbox ======================================= -->
-  <script type="text/babel">
-    function Chatbox() {
-      const [open, setOpen] = React.useState(false);
-      const [input, setInput] = React.useState('');
-      const [messages, setMessages] = React.useState([
-        { role: 'assistant', content: "Hey! I'm TeenBank’s helper. I can help you with budgeting, saving, or site questions." }
-      ]);
-      const [loading, setLoading] = React.useState(false);
-
-      async function send() {
-        if (!input.trim()) return;
-        const userMsg = { role: 'user', content: input };
-        setMessages(m => [...m, userMsg]);
-        setInput('');
-        setLoading(true);
-        try {
-          const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: messages.concat(userMsg) })
-          });
-          const data = await res.json();
-          setMessages(m => [...m, { role: 'assistant', content: data.reply }]);
-        } catch {
-          setMessages(m => [...m, { role: 'assistant', content: "Hmm, I couldn’t connect to the server." }]);
-        } finally {
-          setLoading(false);
-        }
-      }
-
-      return (
-        <>
-          <button
-            onClick={() => setOpen(!open)}
-            className="fixed bottom-5 right-5 bg-indigo-600 text-white px-4 py-2 rounded-full shadow"
-          >
-            {open ? 'Close' : 'Chat'}
-          </button>
-          {open && (
-            <div className="fixed bottom-20 right-5 bg-white dark:bg-slate-800 text-sm w-80 h-96 shadow-xl rounded-2xl flex flex-col">
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {messages.map((m, i) => (
-                  <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-                    <span className={`inline-block px-3 py-2 rounded-xl ${m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-slate-700 text-gray-900 dark:text-slate-100'}`}>
-                      {m.content}
-                    </span>
-                  </div>
-                ))}
-                {loading && <div className="text-xs text-gray-500">Typing...</div>}
-              </div>
-              <div className="border-t p-2 flex">
-                <input
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && send()}
-                  placeholder="Ask about budgeting or saving..."
-                  className="flex-1 border rounded-l-xl px-2 py-1 text-gray-900 dark:text-slate-100 dark:bg-slate-900"
-                />
-                <button onClick={send} className="bg-indigo-600 text-white px-3 rounded-r-xl">Send</button>
-              </div>
-            </div>
-          )}
-        </>
-      );
-    }
-
-    // Single render: mount your App + the new Chatbox together
-    ReactDOM.createRoot(document.getElementById('root')).render(
-      <>
-        <App />
-        <Chatbox />
-      </>
-    );
-  </script>
-  <!-- === End Chatbox ===================================================== -->
-
 </body>
 </html>
