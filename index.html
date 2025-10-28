@@ -25,7 +25,7 @@
     const ADMIN_DEFAULT_PASSWORD = 'admin123';
 
     const DB_KEY = 'teenbank_participants_v4';   // participants/users
-    theCLASSES_KEY = 'teenbank_classes_v2';      // classes store
+    const CLASSES_KEY = 'teenbank_classes_v2';   // classes store  (FIXED)
     const THEME_KEY = 'teenbank_theme';
 
     const DEFAULT_PARTICIPANTS = [];
@@ -92,12 +92,12 @@
 
     function loadClasses(){
       try {
-        const raw = localStorage.getItem(theCLASSES_KEY);
+        const raw = localStorage.getItem(CLASSES_KEY); // FIXED
         const arr = raw ? JSON.parse(raw) : [];
         return arr.map(c => ({ id: String(c.id), title: c.title || null, members: Array.isArray(c.members)? c.members: [] }));
       } catch(e){ return []; }
     }
-    const saveClasses = (list) => localStorage.setItem(theCLASSES_KEY, JSON.stringify(list));
+    const saveClasses = (list) => localStorage.setItem(CLASSES_KEY, JSON.stringify(list)); // FIXED
 
     // ------------------- UI primitives -------------------
     function Toast({ text, onClose }){
@@ -422,7 +422,6 @@
       const text = String(input || '').trim();
       if (!text) return "Ask me budgeting or business math. Try: 'NPV cash flows ... at 8%' or 'Loan 12000 at 6% for 36 months'.";
 
-      // helpers
       const num = (s) => parseFloat(String(s||'').replace(/[$,%\s,]/g,''));
       const moneyList = (txt = text) => {
         const m = txt.match(/-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?/g);
@@ -431,19 +430,16 @@
       const dollars = (n) => (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'});
       const pctStr = (n) => `${(Number(n)*100).toFixed(2)}%`;
 
-      // Finance math
       const pmt = (ratePer, nper, pv, fv = 0, type = 0) => {
         if (ratePer === 0) return - (pv + fv) / nper;
         const r = ratePer;
         const pow = Math.pow(1 + r, nper);
         return - (r * (pv * pow + fv)) / ((1 + r * type) * (pow - 1));
       };
-
       const npv = (rate, cashFlows) => {
         const r = Number(rate);
         return cashFlows.reduce((s, cf, i) => s + (cf / Math.pow(1 + r, i)), 0);
       };
-
       const irr = (cashFlows, guess = 0.1) => {
         let x0 = guess, x1 = guess + 0.05;
         const f = (r) => npv(r, cashFlows);
@@ -456,9 +452,7 @@
         }
         return x1;
       };
-
       const CAGR = (start, end, years) => Math.pow(end/start, 1/years) - 1;
-
       const parseCashFlows = (txt=text) => {
         const m = txt.match(/-?\d[\d,]*(?:\.\d+)?/g);
         if (!m) return null;
@@ -467,7 +461,6 @@
         return null;
       };
 
-      // Complex intents
       if (/npv/i.test(text)) {
         const flows = parseCashFlows();
         const rateMatch = text.match(/(?:at|rate|discount)\s*(\d+(\.\d+)?)\s*%/i);
@@ -676,12 +669,10 @@
           if (reply) {
             setMessages(m => [...m, { role: 'assistant', content: reply }]);
           } else {
-            // fallback if empty
             const local = teenbankAI(userMsg.content, messages);
             setMessages(m => [...m, { role: 'assistant', content: local }]);
           }
         } catch {
-          // Automatic offline fallback
           const local = teenbankAI(userMsg.content, messages);
           setMessages(m => [...m, { role: 'assistant', content: local }]);
         } finally {
@@ -953,7 +944,7 @@
                   applyWeeklyAll={applyMyWeeklyNow}
                   onJoinClass={joinClass}
                 />
-                {/* Chat aligned as a right column card */}
+                {/* Chat aligned as a right column card (same style/height feel) */}
                 <ChatboxPanel />
               </>
             )}
