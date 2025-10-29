@@ -763,7 +763,7 @@
       async function createAccount(username, name, pw, pw2){
         const u = (username||'').trim().toLowerCase();
         const display = (name||'').trim();
-        if (!u || !display) return notify('Enter a username and display name');
+        if (!u || !display) return notify('Enter a username and display name. Make the username unique! Do not include any personal information (ie. Name, DOB, etc.)');
         if (!pw) return notify('Enter a password');
         if (pw !== pw2) return notify('Passwords do not match');
         if (/[^a-z0-9_.-]/i.test(u)) return notify('Username may contain letters, numbers, _ . -');
