@@ -3,16 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Student Banking — Username/Password + Class Join</title>
+  <title>Student Banking — Pseudonymous + Class Join + Recovery Key</title>
 
-  <!-- Tailwind (dark mode disabled for consistent white UI) -->
+  <!-- Tailwind CSS -->
   <script>window.tailwind = { config: { darkMode: false } };</script>
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React 18 (UMD) + Babel -->
+  <!-- React 18 + Babel -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase compat (auth + firestore + analytics) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
+  <style>
+    html, body, #root { height: 100%; }
+  </style>
 </head>
 
 <body class="h-full bg-white text-slate-900">
@@ -21,91 +31,154 @@
   <script type="text/babel">
     const { useEffect, useMemo, useState } = React;
 
-    // ------------------- Constants & helpers -------------------
-    const ADMIN_USERNAME = 'admin';
-    const ADMIN_DEFAULT_PASSWORD = 'admin123';
+    // =========================
+    // Firebase Init (YOUR KEYS)
+    // =========================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBD0mSQYbzt0hYLPfTRYp6BcoD0fPmxS9o",
+      authDomain: "student-bank-62951.firebaseapp.com",
+      projectId: "student-bank-62951",
+      storageBucket: "student-bank-62951.firebasestorage.app",
+      messagingSenderId: "185943826805",
+      appId: "1:185943826805:web:43f8f19a8fc3f09522b33c",
+      measurementId: "G-HRH4M6VLPR"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+    const analytics = firebase.analytics();
 
-    const DB_KEY = 'teenbank_participants_v4';   // participants/users
-    const CLASSES_KEY = 'teenbank_classes_v2';   // classes store  (FIXED)
-
-    const DEFAULT_PARTICIPANTS = [];
-
-    function fmtUSD(n){ return (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
-    const now = () => Date.now();
-
-    function computeBalance(user){
-      const tx = user.transactions || [];
-      return tx.reduce((s,t)=> s + Number(t.amount||0), 0);
+    // =========================
+    // Helpers (no PII)
+    // =========================
+    function alias() {
+      const animals = [
+        "Otter","Hawk","Wolf","Lynx","Kestrel","Puma","Fox","Raven","Falcon","Orca",
+        "Bison","Elk","Badger","Heron","Salmon","Cedar","Maple","Aspen","Pine","Birch"
+      ];
+      const a = animals[Math.floor(Math.random() * animals.length)];
+      return `${a}-${Math.floor(1000 + Math.random() * 9000)}`;
     }
-
-    // --- simple hashing (demo) ---
-    async function sha256(text){
+    async function sha256Hex(text) {
       const enc = new TextEncoder().encode(text);
       const buf = await crypto.subtle.digest('SHA-256', enc);
       return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
     }
-    function randomSalt(len=16){
-      const arr = new Uint8Array(len); crypto.getRandomValues(arr);
-      return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+    function fmtUSD(n){ return (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
+    const now = () => Date.now();
+    function computeBalance(user){
+      const tx = Array.isArray(user.transactions) ? user.transactions : [];
+      return tx.reduce((s,t)=> s + Number(t.amount||0), 0);
     }
 
-    // ------------------- Storage + migration -------------------
-    function migrateParticipants(raw){
-      const list = raw ? JSON.parse(raw) : DEFAULT_PARTICIPANTS;
-      return list.map(u => ({
-        id: u.id ?? Date.now(),
-        username: u.username ?? (u.name ? String(u.name).toLowerCase().replace(/\s+/g,'') : 'user'+Math.floor(Math.random()*1e6)),
-        name: u.name ?? (u.username ?? 'User'),
-        salt: u.salt ?? null,
-        passwordHash: u.passwordHash ?? null,
-        subscriptionActive: !!u.subscriptionActive,
-        weeklyDeductions: Array.isArray(u.weeklyDeductions) ? u.weeklyDeductions : [],
-        goals: Array.isArray(u.goals) ? u.goals : [],
-        budgets: typeof u.budgets === 'object' && u.budgets ? u.budgets : {},
-        transactions: Array.isArray(u.transactions) ? u.transactions : [],
-      }));
+    // =========================
+    // Firestore Accessors
+    // =========================
+    async function ensureAnonProfile(classId=null) {
+      const cred = await auth.signInAnonymously();
+      const uid  = cred.user.uid;
+      const profileRef = db.collection("profiles").doc(uid);
+      const snap = await profileRef.get();
+      if (!snap.exists) {
+        await profileRef.set({
+          uid,
+          alias: alias(),
+          classId: classId || null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+          subscriptionActive: false,
+          weeklyDeductions: [],
+          goals: [],
+          budgets: {},
+          transactions: []
+        });
+      } else {
+        await profileRef.update({ lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      return uid;
+    }
+    async function getMyProfile(uid) {
+      const doc = await db.collection("profiles").doc(uid).get();
+      return doc.exists ? doc.data() : null;
+    }
+    async function updateMyProfile(uid, patch) {
+      await db.collection("profiles").doc(uid).update({
+        ...patch,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    async function addTransaction(uid, amount, memo) {
+      const ref = db.collection("profiles").doc(uid);
+      await ref.update({
+        transactions: firebase.firestore.FieldValue.arrayUnion({
+          amount: Number(amount), memo: memo || null, ts: now()
+        }),
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    async function removeLastTransaction(uid) {
+      const ref = db.collection("profiles").doc(uid);
+      const snap = await ref.get();
+      if (!snap.exists) return;
+      const data = snap.data();
+      const tx = Array.isArray(data.transactions) ? data.transactions.slice(0, -1) : [];
+      await ref.update({ transactions: tx, lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function applyWeeklyNow(uid) {
+      const ref = db.collection("profiles").doc(uid);
+      const snap = await ref.get();
+      if (!snap.exists) return;
+      const data = snap.data();
+      const txs = Array.isArray(data.transactions) ? [...data.transactions] : [];
+      (data.weeklyDeductions || []).forEach(d => {
+        txs.push({ amount: -Number(d.amount), memo: `Weekly: ${d.name}`, ts: now() });
+      });
+      await ref.update({ transactions: txs, lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    async function joinClass(uid, code) {
+      const q = await db.collection("classes").where("code","==",String(code)).limit(1).get();
+      if (q.empty) {
+        const newDoc = await db.collection("classes").add({
+          code: String(code),
+          title: null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await updateMyProfile(uid, { classId: newDoc.id });
+        await db.collection("enrollments").add({ uid, classId: newDoc.id, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        return { created: true, classId: newDoc.id };
+      } else {
+        const doc = q.docs[0];
+        await updateMyProfile(uid, { classId: doc.id });
+        await db.collection("enrollments").add({ uid, classId: doc.id, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        return { created: false, classId: doc.id };
+      }
+    }
+    async function setRecoveryKey(uid, plainKey) {
+      const hash = await sha256Hex(plainKey);
+      await db.collection("recovery").doc(hash).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      return hash;
+    }
+    async function resolveRecoveryKey(plainKey) {
+      const hash = await sha256Hex(plainKey);
+      const doc = await db.collection("recovery").doc(hash).get();
+      if (!doc.exists) throw new Error("Invalid recovery key");
+      return doc.data().uid;
+    }
+    async function checkAdminKey(plainKey) {
+      const hash = await sha256Hex(plainKey);
+      const cfg = await db.collection("admin").doc("config").get();
+      const good = cfg.exists && cfg.data().adminKeyHash === hash;
+      return good;
     }
 
-    function loadParticipants(){
-      try {
-        const stored = localStorage.getItem(DB_KEY);
-        const arr = migrateParticipants(stored);
-        // Ensure admin exists
-        if (!arr.find(u => u.username === ADMIN_USERNAME)) {
-          arr.push({
-            id: Date.now(),
-            username: ADMIN_USERNAME,
-            name: 'Admin',
-            salt: null,
-            passwordHash: null,
-            subscriptionActive: false,
-            weeklyDeductions: [],
-            goals: [],
-            budgets: {},
-            transactions: [],
-          });
-        }
-        return arr;
-      } catch (e){ console.warn('Load fail, using defaults', e); return migrateParticipants(); }
-    }
-    const saveParticipants = (list) => localStorage.setItem(DB_KEY, JSON.stringify(list));
-
-    function loadClasses(){
-      try {
-        const raw = localStorage.getItem(CLASSES_KEY); // FIXED
-        const arr = raw ? JSON.parse(raw) : [];
-        return arr.map(c => ({ id: String(c.id), title: c.title || null, members: Array.isArray(c.members)? c.members: [] }));
-      } catch(e){ return []; }
-    }
-    const saveClasses = (list) => localStorage.setItem(CLASSES_KEY, JSON.stringify(list)); // FIXED
-
-    // ------------------- UI primitives -------------------
-    function Toast({ text, onClose }){
+    // =========================
+    // UI primitives
+    // =========================
+    function Toast({ text, onClose }) {
       useEffect(() => { const t = setTimeout(onClose, 1800); return () => clearTimeout(t); }, [onClose]);
       return <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-800 text-white text-sm px-3 py-2 rounded shadow-lg">{text}</div>;
     }
-
-    function ProgressBar({ value, max }){
+    function ProgressBar({ value, max }) {
       const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
       return (
         <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
@@ -113,14 +186,18 @@
         </div>
       );
     }
-
     function Pill({children}) {
       return <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">{children}</span>;
     }
 
-    function GoalRow({ g, onContribute }){
+    // =========================
+    // Goal Row
+    // =========================
+    function GoalRow({ g, onContribute }) {
       const [contrib, setContrib] = useState('');
-      const saved = Number(g.saved)||0; const target = Number(g.target)||0; const remaining = Math.max(0, target - saved);
+      const saved = Number(g.saved)||0;
+      const target = Number(g.target)||0;
+      const remaining = Math.max(0, target - saved);
       return (
         <div className="p-3 rounded border border-blue-100 bg-white">
           <div className="flex items-center justify-between gap-2">
@@ -138,91 +215,91 @@
       );
     }
 
-    // ------------------- Admin Panel -------------------
-    function AdminPanel({ participants, classes, onAdjust, onSubscribe, onCancel, onDelete, onRenameClass, onRemoveFromClass }){
-      const [q,setQ] = useState('');
-      const filtered = React.useMemo(()=>{
-        const members = new Set(classes.flatMap(c => c.members));
-        const base = participants.filter(p => !members.has(p.username));
-        const t = q.trim().toLowerCase();
-        if(!t) return base;
-        return base.filter(p => (p.name+' '+p.username).toLowerCase().includes(t));
-      }, [participants, classes, q]);
+    // =========================
+    // Admin Panel (no PII)
+    // =========================
+    function AdminPanel({ profiles, classes, enrollments, onRenameClass, onToggleSub, onAdjust, onRemoveFromClass }) {
+      const [q, setQ] = useState('');
+      const search = q.trim().toLowerCase();
+      const filtered = useMemo(() => {
+        if (!search) return profiles;
+        return profiles.filter(p => String(p.alias||'').toLowerCase().includes(search) || String(p.uid||'').slice(-6).includes(search));
+      }, [profiles, search]);
+
+      function classTitle(cls) {
+        return `Class ${cls.code}${cls.title ? ` — ${cls.title}` : ''}`;
+      }
+      const mapClass = new Map(classes.map(c => [c.id, c]));
+      const roster = classes.map(cls => {
+        const members = enrollments.filter(e => e.classId === cls.id).map(e => e.uid);
+        return { cls, members };
+      });
 
       return (
         <section className="md:col-span-2 bg-white p-5 rounded-2xl shadow-sm space-y-6 border border-blue-100">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-blue-800">Admin · Unassigned Participants</h3>
-              <input className="border border-blue-200 rounded px-2 py-1 text-sm" placeholder="Search name or username" value={q} onChange={e=>setQ(e.target.value)} />
+              <h3 className="text-lg font-semibold text-blue-800">Admin · Profiles (no PII)</h3>
+              <input className="border border-blue-200 rounded px-2 py-1 text-sm" placeholder="Search alias or last 6 UID" value={q} onChange={e=>setQ(e.target.value)} />
             </div>
-            <ul className="divide-y divide-blue-100">
-              {filtered.map(p => (
-                <li key={p.id} className="py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="font-medium">{p.name} <span className="text-slate-500">(@{p.username})</span></div>
-                    <div className="text-sm text-slate-600">Balance: <strong>{fmtUSD(computeBalance(p))}</strong></div>
-                    <div className="text-xs text-slate-500">Subscription: {p.subscriptionActive ? <Pill>Active</Pill> : <Pill>Inactive</Pill>}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs" onClick={()=>onSubscribe(p.id)}>Activate</button>
-                    <button className="px-3 py-1 rounded bg-blue-800 text-white text-xs" onClick={()=>onCancel(p.id)}>Cancel</button>
-                    <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs" onClick={()=>onAdjust(p.id, +5, 'Admin +$5')}>+ $5</button>
-                    <button className="px-3 py-1 rounded bg-blue-800 text-white text-xs" onClick={()=>onAdjust(p.id, -5, 'Admin -$5')}>− $5</button>
-                    <button className="px-3 py-1 rounded bg-blue-800 text-white text-xs" onClick={()=>onDelete(p.id)}>Delete</button>
-                  </div>
-                </li>
-              ))}
+            <ul className="divide-y divide-blue-100 max-h-[320px] overflow-auto pr-1">
+              {filtered.map(p => {
+                const bal = fmtUSD(computeBalance(p));
+                const uidTail = String(p.uid||'').slice(-6);
+                return (
+                  <li key={p.uid} className="py-3 flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="font-medium">{p.alias} <span className="text-slate-500">· uid …{uidTail}</span></div>
+                      <div className="text-xs text-slate-600">Balance: <strong>{bal}</strong></div>
+                      <div className="text-xs text-slate-500">Subscription: {p.subscriptionActive ? <Pill>Active</Pill> : <Pill>Inactive</Pill>}</div>
+                      <div className="text-xs text-slate-500">Class: {p.classId ? (mapClass.get(p.classId)?.code ?? p.classId) : '—'}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs" onClick={()=>onToggleSub(p.uid, true)}>Activate</button>
+                      <button className="px-3 py-1 rounded bg-blue-800 text-white text-xs" onClick={()=>onToggleSub(p.uid, false)}>Cancel</button>
+                      <button className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs" onClick={()=>onAdjust(p.uid, +5, 'Admin +$5')}>+ $5</button>
+                      <button className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs" onClick={()=>onAdjust(p.uid, -5, 'Admin -$5')}>− $5</button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
           <div>
             <h3 className="text-lg font-semibold text-blue-800 mb-2">Classes</h3>
-            {classes.length === 0 && (
-              <p className="text-sm text-slate-500">No classes yet. Students can join by entering a class number.</p>
-            )}
+            {classes.length === 0 && <p className="text-sm text-slate-500">No classes yet. Students can join by entering a class code.</p>}
             <ul className="space-y-3">
-              {classes.map(cls => (
+              {roster.map(({cls, members}) => (
                 <li key={cls.id} className="p-3 rounded border border-blue-100 bg-white">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-medium">Class #{cls.id}{cls.title ? ` — ${cls.title}` : ''}</div>
-                      <div className="text-xs text-slate-500">Members: {cls.members.length}</div>
+                      <div className="font-medium">{classTitle(cls)}</div>
+                      <div className="text-xs text-slate-500">Members: {members.length}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input className="border border-blue-200 rounded px-2 py-1 text-sm w-44" placeholder="Rename (optional)" onKeyDown={e=>{ if(e.key==='Enter'){ onRenameClass(cls.id, e.currentTarget.value.trim()); e.currentTarget.value=''; } }} />
-                      <button className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs" onClick={()=>{
-                        const newTitle = prompt('New title for Class #'+cls.id, cls.title||'');
-                        if (newTitle !== null) onRenameClass(cls.id, newTitle.trim());
-                      }}>Rename</button>
+                      <input className="border border-blue-200 rounded px-2 py-1 text-sm w-44" placeholder="Rename (optional)"
+                        onKeyDown={e=>{ if(e.key==='Enter'){ onRenameClass(cls.id, e.currentTarget.value.trim()); e.currentTarget.value=''; } }} />
+                      <button className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs"
+                        onClick={()=>{
+                          const t = prompt('New title for ' + classTitle(cls), cls.title||'');
+                          if (t !== null) onRenameClass(cls.id, t.trim());
+                        }}>Rename</button>
                     </div>
                   </div>
                   <ul className="mt-2 divide-y divide-blue-100">
-                    {cls.members.map(m => {
-                      const p = participants.find(u => u.username === m);
-                      if (!p) {
-                        return (
-                          <li key={m} className="py-2 flex items-center justify-between">
-                            <span className="text-sm">@{m}</span>
-                            <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white" onClick={()=>onRemoveFromClass(cls.id, m)}>Remove</button>
-                          </li>
-                        );
-                      }
-                      const balance = fmtUSD(computeBalance(p));
+                    {members.length === 0 && <li className="py-2 text-sm text-slate-500">No members yet.</li>}
+                    {members.map(uid => {
+                      const p = profiles.find(pp => pp.uid === uid);
+                      const bal = p ? fmtUSD(computeBalance(p)) : '—';
+                      const alias = p?.alias ?? 'Unknown';
                       return (
-                        <li key={m} className="py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-medium">{p.name} <span className="text-slate-500">(@{p.username})</span></div>
-                              <div className="text-xs text-slate-600">Balance: <strong>{balance}</strong> · Subscription: {p.subscriptionActive ? 'Active' : 'Inactive'}</div>
-                              <div className="mt-1 text-xs text-slate-500">Goals: {p.goals?.length||0} · Weekly deductions: {p.weeklyDeductions?.length||0} · Budgets: {Object.keys(p.budgets||{}).length}</div>
-                            </div>
-                            <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white self-start" onClick={()=>onRemoveFromClass(cls.id, m)}>Remove</button>
-                          </div>
+                        <li key={uid} className="py-2 flex items-center justify-between">
+                          <span className="text-sm">{alias} <span className="text-slate-400">· uid …{String(uid).slice(-6)}</span> · Bal {bal}</span>
+                          <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white" onClick={()=>onRemoveFromClass(cls.id, uid)}>Remove</button>
                         </li>
                       );
                     })}
-                    {cls.members.length===0 && <li className="py-2 text-sm text-slate-500">No members yet.</li>}
                   </ul>
                 </li>
               ))}
@@ -232,8 +309,10 @@
       );
     }
 
-    // ------------------- User Panel -------------------
-    function UserPanel({ user, updateUser, applyWeeklyAll, onJoinClass }){
+    // =========================
+    // User Panel
+    // =========================
+    function UserPanel({ profile, onUpdate, onJoinClass, onApplyWeekly, onTx, onUndo }) {
       const [delta, setDelta] = useState('');
       const [memo, setMemo] = useState('');
       const [wdName, setWdName] = useState('');
@@ -244,96 +323,62 @@
       const [bAmt, setBAmt] = useState('');
       const [classCode, setClassCode] = useState('');
 
-      const balance = useMemo(()=> computeBalance(user), [user.transactions]);
-
-      function pushTx(amount, memo){
-        updateUser(u => ({...u, transactions: [...(u.transactions||[]), { amount: Number(amount), memo: memo||null, ts: now() }]}));
-      }
-
-      function deposit(){
-        const n = parseFloat(delta); if(Number.isNaN(n) || n <= 0) return;
-        let remaining = n;
-        const updGoals = (user.goals||[]).map(g => {
-          if (remaining <= 0) return g;
-          const need = Math.max(0, Number(g.target) - Number(g.saved));
-          const add = Math.min(need, remaining);
-          remaining -= add; return {...g, saved: Number(g.saved)+add};
-        });
-        updateUser(u => ({...u, goals: updGoals}));
-        pushTx(n, memo || 'Deposit');
-        setDelta(''); setMemo('');
-      }
-
-      function withdraw(){
-        const n = parseFloat(delta); if(Number.isNaN(n) || n <= 0) return;
-        pushTx(-n, memo || 'Withdraw');
-        setDelta(''); setMemo('');
-      }
-
-      function undoLast(){
-        updateUser(u => ({...u, transactions: (u.transactions||[]).slice(0, -1)}));
-      }
+      const balance = useMemo(()=> computeBalance(profile), [profile.transactions]);
 
       function addWeekly(){
         const n = parseFloat(wdAmt); if(!wdName || Number.isNaN(n) || n<=0) return;
-        updateUser(u => ({...u, weeklyDeductions: [...(u.weeklyDeductions||[]), { name: wdName, amount: n }]}));
-        pushTx(-n, `Weekly: ${wdName}`);
+        const upd = [...(profile.weeklyDeductions||[]), { name: wdName, amount: n }];
+        onUpdate({ weeklyDeductions: upd });
+        onTx(-n, `Weekly: ${wdName}`);
         setWdName(''); setWdAmt('');
       }
-
-      function removeWeekly(idx){
-        updateUser(u => { const arr = [...(u.weeklyDeductions||[])]; arr.splice(idx,1); return {...u, weeklyDeductions: arr}; });
-      }
-
       function addGoal(){
         const t = parseFloat(goalTarget); if(!goalName || Number.isNaN(t) || t<=0) return;
-        updateUser(u => ({...u, goals: [...(u.goals||[]), { name: goalName, target: t, saved: 0 }]}));
+        const goals = [...(profile.goals||[]), { name: goalName, target: t, saved: 0 }];
+        onUpdate({ goals });
         setGoalName(''); setGoalTarget('');
       }
-
       function contributeGoal(idx, amt){
         const n = Number(amt); if(Number.isNaN(n) || n<=0) return;
-        updateUser(u => {
-          const goals = [...(u.goals||[])];
-          const g = {...goals[idx]};
-          const maxAdd = Math.min(n, Math.max(0, Number(g.target) - Number(g.saved)));
-          if (maxAdd <= 0) return u;
-          g.saved = Number(g.saved) + maxAdd; goals[idx] = g;
-          return {...u, goals};
-        });
-        pushTx(-n, 'Goal contribution');
+        const goals = [...(profile.goals||[])];
+        const g = {...goals[idx]};
+        const maxAdd = Math.min(n, Math.max(0, Number(g.target) - Number(g.saved)));
+        if (maxAdd <= 0) return;
+        g.saved = Number(g.saved) + maxAdd; goals[idx] = g;
+        onUpdate({ goals });
+        onTx(-n, 'Goal contribution');
       }
-
       function upsertBudget(){
         const n = parseFloat(bAmt); if(!cat || Number.isNaN(n) || n<=0) return;
-        updateUser(u => ({...u, budgets: { ...(u.budgets||{}), [cat]: n }}));
+        const b = { ...(profile.budgets||{}), [cat]: n };
+        onUpdate({ budgets: b });
         setCat(''); setBAmt('');
       }
-
       function deleteBudget(k){
-        updateUser(u => { const b = { ...(u.budgets||{}) }; delete b[k]; return {...u, budgets: b}; });
+        const b = { ...(profile.budgets||{}) }; delete b[k];
+        onUpdate({ budgets: b });
       }
-
-      function handleJoinClick(){
+      async function handleJoin(){
         const code = String(classCode).trim();
-        if (!code || /[^0-9]/.test(code)) { alert('Enter a numeric class number'); return; }
-        onJoinClass(code, user.username);
+        if (!/^\d+$/.test(code)) { alert("Enter a numeric class code"); return; }
+        await onJoinClass(code);
         setClassCode('');
       }
 
       return (
         <section className="md:col-span-2 bg-white p-5 rounded-2xl shadow-sm space-y-6 border border-blue-100">
           <div>
-            <h3 className="text-lg font-semibold text-blue-800">Welcome, {user.name}</h3>
+            <h3 className="text-lg font-semibold text-blue-800">Welcome, {profile.alias}</h3>
             <p className="text-sm text-slate-700">Balance: <strong>{fmtUSD(balance)}</strong></p>
+            <p className="text-xs text-slate-500">UID …{String(profile.uid).slice(-6)} · Class: {profile.classId ? profile.classId : '—'}</p>
           </div>
 
           <div className="p-3 rounded border border-blue-100 bg-white">
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-sm">Join a class:</label>
-              <input className="border border-blue-200 p-2 rounded w-40" placeholder="Class number" value={classCode} onChange={e=>setClassCode(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={handleJoinClick}>Join</button>
-              <span className="text-xs text-slate-500">(Only admins can view rosters.)</span>
+              <input className="border border-blue-200 p-2 rounded w-40" placeholder="Class code" value={classCode} onChange={e=>setClassCode(e.target.value)} />
+              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={handleJoin}>Join</button>
+              <span className="text-xs text-slate-500">(No personal info needed.)</span>
             </div>
           </div>
 
@@ -342,18 +387,18 @@
             <div className="flex flex-wrap gap-2 items-center">
               <input type="number" step="0.01" placeholder="$ amount" className="border border-blue-200 p-2 rounded w-36" value={delta} onChange={e=>setDelta(e.target.value)} />
               <input type="text" placeholder="Memo (optional)" className="border border-blue-200 p-2 rounded w-60" value={memo} onChange={e=>setMemo(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={deposit}>Deposit</button>
-              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={withdraw}>Withdraw</button>
-              <button className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded" onClick={undoLast}>Undo last</button>
+              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={()=>{const n=parseFloat(delta); if(!Number.isNaN(n)&&n>0){ onTx(n, memo || 'Deposit'); setDelta(''); setMemo('');}}}>Deposit</button>
+              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={()=>{const n=parseFloat(delta); if(!Number.isNaN(n)&&n>0){ onTx(-n, memo || 'Withdraw'); setDelta(''); setMemo('');}}}>Withdraw</button>
+              <button className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded" onClick={onUndo}>Undo last</button>
             </div>
-            <ul className="divide-y divide-blue-100 bg-white rounded border border-blue-100">
-              {(user.transactions||[]).slice().reverse().map((t,i)=> (
+            <ul className="divide-y divide-blue-100 bg-white rounded border border-blue-100 max-h-[240px] overflow-auto">
+              {(profile.transactions||[]).slice().reverse().map((t,i)=> (
                 <li key={i} className="flex items-center justify-between p-2">
                   <span className="text-sm">{new Date(t.ts||now()).toLocaleString()} — {t.memo || '—'}</span>
                   <span className={"text-sm font-medium "+(t.amount>=0?'text-blue-800':'text-blue-700')}>{t.amount>=0?'+':''}{Number(t.amount).toFixed(2)}</span>
                 </li>
               ))}
-              {(user.transactions||[]).length === 0 && <li className="p-2 text-sm text-slate-500">No transactions yet.</li>}
+              {(profile.transactions||[]).length === 0 && <li className="p-2 text-sm text-slate-500">No transactions yet.</li>}
             </ul>
           </div>
 
@@ -363,16 +408,16 @@
               <input className="border border-blue-200 p-2 rounded" placeholder="Name (e.g., Phone)" value={wdName} onChange={e=>setWdName(e.target.value)} />
               <input className="border border-blue-200 p-2 rounded w-32" type="number" step="0.01" placeholder="Amount" value={wdAmt} onChange={e=>setWdAmt(e.target.value)} />
               <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={addWeekly}>Add & Apply</button>
-              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={applyWeeklyAll}>Run all weekly now</button>
+              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={onApplyWeekly}>Run all weekly now</button>
             </div>
             <ul className="space-y-2">
-              {(user.weeklyDeductions||[]).map((d,i)=> (
+              {(profile.weeklyDeductions||[]).map((d,i)=> (
                 <li key={i} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded">
                   <span>{d.name} — <strong>{fmtUSD(d.amount)}</strong></span>
-                  <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white" onClick={()=>removeWeekly(i)}>Remove</button>
+                  <span className="text-xs text-slate-400">fixed</span>
                 </li>
               ))}
-              {(!user.weeklyDeductions || user.weeklyDeductions.length===0) && (
+              {(!profile.weeklyDeductions || profile.weeklyDeductions.length===0) && (
                 <li className="text-sm text-slate-500">No weekly deductions yet.</li>
               )}
             </ul>
@@ -386,10 +431,10 @@
               <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={addGoal}>Add Goal</button>
             </div>
             <div className="space-y-3">
-              {(user.goals||[]).map((g, idx) => (
+              {(profile.goals||[]).map((g, idx) => (
                 <GoalRow key={idx} g={g} onContribute={(amt)=>contributeGoal(idx, amt)} />
               ))}
-              {(!user.goals || user.goals.length===0) && (
+              {(!profile.goals || profile.goals.length===0) && (
                 <div className="text-sm text-slate-500">No goals yet. Add your first goal above.</div>
               )}
             </div>
@@ -403,7 +448,7 @@
               <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={upsertBudget}>Add/Update</button>
             </div>
             <ul className="space-y-2">
-              {Object.entries(user.budgets||{}).map(([k,v]) => (
+              {Object.entries(profile.budgets||{}).map(([k,v]) => (
                 <li key={k} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded">
                   <span className="font-medium">{k}</span>
                   <div className="flex items-center gap-3">
@@ -412,7 +457,7 @@
                   </div>
                 </li>
               ))}
-              {Object.keys(user.budgets||{}).length===0 && (
+              {Object.keys(profile.budgets||{}).length===0 && (
                 <li className="text-sm text-slate-500">No budgets yet.</li>
               )}
             </ul>
@@ -421,526 +466,217 @@
       );
     }
 
-    // ------------------- Enhanced in-browser TeenBank AI (fallback, no server needed) -------------------
-    function teenbankAI(input, history = []) {
-      const text = String(input || '').trim();
-      if (!text) return "Ask me budgeting or business math. Try: 'NPV cash flows ... at 8%' or 'Loan 12000 at 6% for 36 months'.";
-
-      const num = (s) => parseFloat(String(s||'').replace(/[$,%\s,]/g,''));
-      const moneyList = (txt = text) => {
-        const m = txt.match(/-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?/g);
-        return (m || []).map(num).filter(v => !Number.isNaN(v));
-      };
-      const dollars = (n) => (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'});
-      const pctStr = (n) => `${(Number(n)*100).toFixed(2)}%`;
-
-      const pmt = (ratePer, nper, pv, fv = 0, type = 0) => {
-        if (ratePer === 0) return - (pv + fv) / nper;
-        const r = ratePer;
-        thePow = Math.pow(1 + r, nper);
-        const pow = thePow;
-        return - (r * (pv * pow + fv)) / ((1 + r * type) * (pow - 1));
-      };
-      const npv = (rate, cashFlows) => {
-        const r = Number(rate);
-        return cashFlows.reduce((s, cf, i) => s + (cf / Math.pow(1 + r, i)), 0);
-      };
-      const irr = (cashFlows, guess = 0.1) => {
-        let x0 = guess, x1 = guess + 0.05;
-        const f = (r) => npv(r, cashFlows);
-        for (let i = 0; i < 50; i++) {
-          const y0 = f(x0), y1 = f(x1);
-          if (Math.abs(y1 - y0) < 1e-12) break;
-          const x2 = x1 - y1 * (x1 - x0) / (y1 - y0);
-          if (!isFinite(x2) || Math.abs(x2 - x1) < 1e-7) return x2;
-          x0 = x1; x1 = x2;
-        }
-        return x1;
-      };
-      const CAGR = (start, end, years) => Math.pow(end/start, 1/years) - 1;
-      const parseCashFlows = (txt=text) => {
-        const m = txt.match(/-?\d[\d,]*(?:\.\d+)?/g);
-        if (!m) return null;
-        const arr = m.map(num);
-        if (/cash\s*flows|flows|series|,/.test(txt)) return arr;
-        return null;
-      };
-
-      if (/npv/i.test(text)) {
-        const flows = parseCashFlows();
-        const rateMatch = text.match(/(?:at|rate|discount)\s*(\d+(\.\d+)?)\s*%/i);
-        if (flows && rateMatch) {
-          const r = (parseFloat(rateMatch[1])||0)/100;
-          const val = npv(r, flows);
-          return `NPV at ${pctStr(r)} = ${dollars(val)}\n(Flows: ${flows.join(', ')})`;
-        }
-        return `Tell me the cash flows and a discount rate, e.g., "NPV cash flows -1000, 300, 400, 500 at 8%".`;
+    // =========================
+    // Recovery Key UI
+    // =========================
+    function RecoveryCard({ uid, currentAlias }) {
+      const [key, setKey] = useState('');
+      const [status, setStatus] = useState('');
+      async function generate() {
+        const animals = ["OWL","OTTER","HAWK","WOLF","PUMA","ELK","BISON","HERON","FALCON","ORCA"];
+        const word = animals[Math.floor(Math.random()*animals.length)];
+        const code = `${word}-${Math.random().toString(36).slice(2,5).toUpperCase()}${Math.floor(10+Math.random()*90)}`;
+        await setRecoveryKey(uid, code);
+        setKey(code);
+        setStatus('Save this key somewhere safe. It will restore your account on a new device.');
       }
-
-      if (/\birr\b/i.test(text)) {
-        const flows = parseCashFlows();
-        if (flows) {
-          const rate = irr(flows);
-          if (isFinite(rate)) return `IRR ≈ ${pctStr(rate)} for flows: ${flows.join(', ')}`;
-          return `I couldn't find a numeric IRR (flows may not cross zero). Try a different series.`;
-        }
-        return `Give me cash flows, e.g., "IRR -1000, 300, 400, 500".`;
-      }
-
-      if (/loan|payment|pmt|amort/i.test(text)) {
-        const nums = moneyList();
-        const principal = nums[0] ?? 10000;
-        let ratePct = nums[1] ?? 5;
-        let term = nums[2] ?? 36;
-        const perMonth = /month|mo\b/i.test(text) || (!/year|yr/i.test(text) && term <= 360);
-        const apr = ratePct > 1 ? ratePct / 100 : ratePct;
-        const nper = perMonth ? term : term * 12;
-        const r = apr / 12;
-        const pay = pmt(r, nper, principal);
-        let bal = principal;
-        const rows = [];
-        for (let i = 1; i <= Math.min(nper, 6); i++) {
-          const interest = bal * r;
-          const principalPart = -pay - interest;
-          bal = Math.max(0, bal - principalPart);
-          rows.push(`#${i}: pay ${dollars(-pay)}, interest ${dollars(interest)}, principal ${dollars(principalPart)}, bal ${dollars(bal)}`);
-        }
-        return [
-          `Payment ~ ${dollars(-pay)} / month for ${nper} months at ${pctStr(apr)} APR on ${dollars(principal)}.`,
-          `First payments (sample):`,
-          ...rows
-        ].join('\n');
-      }
-
-      if (/compound|future\s*value|fv\b/i.test(text)) {
-        const nums = moneyList();
-        const P = nums[0] ?? 1000;
-        const r = (nums[1] ?? 5)/100;
-        const t = nums[2] ?? 5;
-        const n = /month/i.test(text) ? 12 : /quarter/i.test(text) ? 4 : 1;
-        const sched = [];
-        for (let year = 1; year <= Math.min(t, 5); year++) {
-          const A = P * Math.pow(1 + r/n, n*year);
-          sched.push(`Year ${year}: ${dollars(A)}`);
-        }
-        const end = P * Math.pow(1 + r/n, n*t);
-        return [`FV ≈ ${dollars(end)} (${(n)}×/yr, ${pctStr(r)} for ${t}y).`, ...sched].join('\n');
-      }
-
-      if (/roi|cagr/i.test(text)) {
-        const nums = moneyList();
-        if (/cagr/i.test(text) && nums.length >= 3) {
-          const rate = CAGR(nums[0], nums[1], nums[2]);
-          return `CAGR ≈ ${pctStr(rate)} (from ${dollars(nums[0])} to ${dollars(nums[1])} over ${nums[2]} years).`;
-        }
-        if (nums.length >= 2) {
-          const roi = (nums[1] - nums[0]) / Math.abs(nums[0]);
-          return `ROI ≈ ${pctStr(roi)} (from ${dollars(nums[0])} to ${dollars(nums[1])}).`;
-        }
-        return `Try “ROI 800 to 1200” or “CAGR 5000 to 7000 in 3 years”.`;
-      }
-
-      if (/break\s*-?\s*even/i.test(text)) {
-        const nums = moneyList();
-        const sorted = [...nums].sort((a,b)=>a-b);
-        const variable = sorted[0] ?? 5;
-        const price = sorted[1] ?? 15;
-        const fixed = sorted[sorted.length-1] ?? 500;
-        const target = /target|profit/i.test(text) ? (sorted[sorted.length-2] ?? 0) : 0;
-        if (price <= variable) return `Price must exceed variable cost. Example: fixed 500, price 20, variable 8, target 0.`;
-        const qty = Math.ceil((fixed + target) / (price - variable));
-        return `Break-even qty ≈ ${qty} (fixed ${fixed}, price ${price}, variable ${variable}${target?`, target profit ${target}`:''}).`;
-      }
-
-      if (/markup|markdown|tax|sales\s*tax/i.test(text)) {
-        const nums = moneyList();
-        if (/tax|sales\s*tax/i.test(text) && nums.length >= 2) {
-          const base = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
-          return `With sales tax ${pctStr(rate)}, total = ${dollars(base*(1+rate))}.`;
-        }
-        if (/markup/i.test(text) && nums.length >= 2) {
-          const cost = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
-          return `Markup ${pctStr(rate)} → price = ${dollars(cost*(1+rate))}.`;
-        }
-        if (/markdown/i.test(text) && nums.length >= 2) {
-          const price = nums[0], rate = (nums[1] > 1 ? nums[1]/100 : nums[1]);
-          return `Markdown ${pctStr(rate)} → sale price = ${dollars(price*(1-rate))}.`;
-        }
-      }
-
-      if (/percent\s*change|increase|decrease/i.test(text)) {
-        const nums = moneyList();
-        if (nums.length >= 2) {
-          const from = nums[0], to = nums[1];
-          const change = (to - from) / Math.abs(from);
-          return `Percent change from ${dollars(from)} to ${dollars(to)} ≈ ${pctStr(change)}.`;
-        }
-      }
-
-      if (/income|rent|utilities|food|grocer|gas|transport|leftover|after\s*fixed/i.test(text)) {
-        const nums = moneyList();
-        const income = nums[0] ?? 1000;
-        const fixed = nums.slice(1).reduce((s, n) => s + n, 0);
-        const leftover = Math.max(0, income - fixed);
-        const needs = leftover * 0.5, wants = leftover * 0.3, save = leftover * 0.2;
-        return [
-          `Income ${dollars(income)} − fixed ${dollars(fixed)} = leftover ${dollars(leftover)}.`,
-          `Split leftover 50/30/20 → Needs ${dollars(needs)}, Wants ${dollars(wants)}, Save ${dollars(save)}.`,
-          `Want me to convert to weekly/day amounts or set goal timing?`
-        ].join('\n');
-      }
-
-      if (/split|budget|50\/?30\/?20|percent|percentage/i.test(text)) {
-        const nums = moneyList();
-        const amount = nums.find(v=>v>0) ?? 100;
-        const needs = amount*0.5, wants = amount*0.3, save = amount*0.2;
-        return [
-          `Try 50/30/20 on ${dollars(amount)}:`,
-          `• Needs (50%): ${dollars(needs)}`,
-          `• Wants (30%): ${dollars(wants)}`,
-          `• Save (20%): ${dollars(save)}`,
-          `Want me to tailor by your rent, food, and goal?`
-        ].join('\n');
-      }
-
-      if (/save|goal|by|per\s*(week|month)/i.test(text)) {
-        const nums = moneyList();
-        const amt = nums[0], perWeek = nums[1];
-        if (amt && perWeek) {
-          const w = Math.ceil(amt / perWeek);
-          return `At ${dollars(perWeek)}/week, you’ll reach ${dollars(amt)} in ~${w} weeks. Want me to split that per day?`;
-        }
-      }
-
-      if (/profit|revenue|expenses/i.test(text)) {
-        const nums = moneyList();
-        if (nums.length >= 2) {
-          const rev = nums[0], exp = nums[1];
-          return `Profit = Revenue − Expenses = ${dollars(rev)} − ${dollars(exp)} = ${dollars(rev-exp)}.`;
-        }
-        return `Tell me your revenue and expenses and I’ll compute profit (and margin).`;
-      }
-
-      if (/interest|apr|rate|compound/i.test(text)) {
-        const nums = moneyList();
-        const P = nums[0] ?? 1000;
-        const r = (nums[1] ?? 5)/100;
-        const t = (nums[2] ?? 1);
-        if (/compound/i.test(text)) {
-          const n = /month/i.test(text) ? 12 : /quarter/i.test(text) ? 4 : 1;
-          const A = P * Math.pow(1 + r/n, n*t);
-          return `Compound estimate: ${dollars(P)} → ${dollars(A)} in ${t} year(s) at ${(r*100).toFixed(2)}% (${n}×/yr).`;
-        } else {
-          const I = P * r * t;
-          return `Simple interest: I = P·r·t = ${dollars(P)} × ${(r*100).toFixed(2)}% × ${t} = ${dollars(I)}. Total ≈ ${dollars(P+I)}.`;
-        }
-      }
-
-      if (/%\s*of|\bpercent of\b/i.test(text)) {
-        const nums = moneyList();
-        const pct = nums.find(v => v<=100 && v>0) ?? 10;
-        const base = nums.find(v => v>100) ?? nums[1] ?? 100;
-        return `${pct}% of ${dollars(base)} is ${dollars(base * (pct/100))}.`;
-      }
-
-      return `I can do NPV/IRR, PMT/amortization, compound schedules, ROI/CAGR, break-even with target profit, markup/tax, and budget splits. Give me numbers and keywords.`;
-    }
-
-    // ------------------- Chatbox Panel (server-first, fallback to teenbankAI) -------------------
-    function ChatboxPanel() {
-      const [messages, setMessages] = useState([
-        { role: 'assistant', content: "Hey! I’m TeenBank’s helper. Ask me budgeting or business math questions—try 'Loan 12000 at 6% for 36 months' or 'NPV -1000,300,400,500 at 8%'." }
-      ]);
-      const [input, setInput] = useState('');
-      const [loading, setLoading] = useState(false);
-
-      async function send() {
-        if (!input.trim()) return;
-        const userMsg = { role: 'user', content: input.trim() };
-        setMessages(m => [...m, userMsg]);
-        setInput('');
-        setLoading(true);
-
-        try {
-          const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: messages.concat(userMsg) })
-          });
-
-          if (!res.ok) throw new Error('Bad status');
-          const data = await res.json();
-          const reply = data?.reply?.trim();
-          if (reply) {
-            setMessages(m => [...m, { role: 'assistant', content: reply }]);
-          } else {
-            const local = teenbankAI(userMsg.content, messages);
-            setMessages(m => [...m, { role: 'assistant', content: local }]);
-          }
-        } catch {
-          const local = teenbankAI(userMsg.content, messages);
-          setMessages(m => [...m, { role: 'assistant', content: local }]);
-        } finally {
-          setLoading(false);
-        }
-      }
-
       return (
-        <aside className="bg-white p-5 rounded-2xl shadow-sm flex flex-col h-[480px] border border-blue-100">
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">TeenBank AI</h3>
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {messages.map((m, i) => (
-              <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
-                <span className={`inline-block px-3 py-2 rounded-xl text-sm ${m.role === 'user'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-50 text-slate-900 border border-blue-100'}`}>
-                  {m.content}
-                </span>
-              </div>
-            ))}
-            {loading && <div className="text-xs text-slate-500">Typing…</div>}
+        <div className="p-4 rounded-2xl border border-blue-100 bg-white">
+          <div className="font-semibold text-blue-800 mb-1">Recovery Key</div>
+          <p className="text-sm text-slate-600 mb-3">No email or name used. Generate a one-time key to recover <strong>{currentAlias}</strong> on another device.</p>
+          <div className="flex items-center gap-2">
+            <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={generate}>Generate Key</button>
+            {key && <span className="text-sm font-mono bg-blue-50 border border-blue-200 px-2 py-1 rounded">{key}</span>}
           </div>
-          <div className="mt-3 flex">
-            <input
-              className="flex-1 border border-blue-200 rounded-l-xl px-3 py-2 text-sm"
-              placeholder="Ask about budgets, goals, or business math…"
-              value={input}
-              onChange={e=>setInput(e.target.value)}
-              onKeyDown={e=>e.key==='Enter' && send()}
-            />
-            <button className="bg-blue-600 text-white px-4 rounded-r-xl" onClick={send}>Send</button>
+          {status && <p className="text-xs text-slate-500 mt-2">{status}</p>}
+        </div>
+      );
+    }
+    function RecoveryLinkCard({ onLinked }) {
+      const [code, setCode] = useState('');
+      const [msg, setMsg] = useState('');
+      async function link() {
+        try {
+          const uid = await resolveRecoveryKey(code.trim());
+          onLinked(uid);
+          setMsg('Recovered profile loaded.');
+        } catch {
+          setMsg('Invalid recovery key.');
+        }
+      }
+      return (
+        <div className="p-4 rounded-2xl border border-blue-100 bg-white">
+          <div className="font-semibold text-blue-800 mb-1">Use Recovery Key</div>
+          <div className="flex gap-2">
+            <input className="border border-blue-200 p-2 rounded w-64" placeholder="Enter your recovery key" value={code} onChange={e=>setCode(e.target.value)} />
+            <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={link}>Link Account</button>
           </div>
-        </aside>
+          {msg && <p className="text-xs text-slate-500 mt-2">{msg}</p>}
+        </div>
       );
     }
 
-    // ------------------- App -------------------
-    function App(){
-      const [participants, setParticipants] = useState(loadParticipants);
-      const [classes, setClasses] = useState(loadClasses);
-      const [loginUser, setLoginUser] = useState('');
-      const [password, setPassword] = useState('');
-      const [authedUser, setAuthedUser] = useState('');
+    // =========================
+    // Admin Gate (hash check)
+    // =========================
+    function AdminGate({ onOpen }) {
+      const [code, setCode] = useState('');
+      const [msg, setMsg] = useState('');
+      async function open() {
+        const ok = await checkAdminKey(code.trim());
+        if (ok) { onOpen(); setMsg('Admin mode enabled'); }
+        else setMsg('Invalid admin key');
+      }
+      return (
+        <div className="p-4 rounded-2xl border border-blue-100 bg-white">
+          <div className="font-semibold text-blue-800 mb-1">Admin View</div>
+          <p className="text-sm text-slate-600 mb-2">Enter admin key (no user PII stored).</p>
+          <div className="flex gap-2">
+            <input className="border border-blue-200 p-2 rounded w-64" placeholder="Admin key" value={code} onChange={e=>setCode(e.target.value)} />
+            <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={open}>Open</button>
+          </div>
+          {msg && <p className="text-xs text-slate-500 mt-2">{msg}</p>}
+        </div>
+      );
+    }
+
+    // =========================
+    // App
+    // =========================
+    function App() {
+      const [uid, setUid] = useState(null);
+      const [profile, setProfile] = useState(null);
       const [toast, setToast] = useState(null);
-      const [isCreating, setIsCreating] = useState(false);
-      const [newName, setNewName] = useState('');
-      const [confirmPw, setConfirmPw] = useState('');
+      const [adminOpen, setAdminOpen] = useState(false);
+      const [profiles, setProfiles] = useState([]);
+      const [classes, setClasses] = useState([]);
+      const [enrollments, setEnrollments] = useState([]);
 
-      useEffect(()=>{ saveParticipants(participants); }, [participants]);
-      useEffect(()=>{ saveClasses(classes); }, [classes]);
-
-      // Ensure admin has a password
       useEffect(() => {
         (async () => {
-          const admin = participants.find(u => u.username === ADMIN_USERNAME);
-          if (admin && (!admin.passwordHash || !admin.salt)) {
-            const salt = admin.salt || randomSalt();
-            const hash = await sha256(salt + ADMIN_DEFAULT_PASSWORD);
-            setParticipants(prev => prev.map(u => u.username===ADMIN_USERNAME ? { ...u, salt, passwordHash: hash } : u));
-          }
+          const uid = await ensureAnonProfile();
+          setUid(uid);
+          const p = await getMyProfile(uid);
+          setProfile(p);
         })();
       }, []);
 
-      const currentUser = useMemo(()=> participants.find(p => p.username.toLowerCase() === authedUser.toLowerCase()) || null, [participants, authedUser]);
-      const isAdmin = currentUser && currentUser.username === ADMIN_USERNAME;
+      useEffect(() => {
+        if (!uid) return;
+        const unsub = db.collection("profiles").doc(uid).onSnapshot(snap => {
+          if (snap.exists) setProfile({ ...snap.data(), uid: snap.data().uid });
+        });
+        return () => unsub && unsub();
+      }, [uid]);
+
+      useEffect(() => {
+        if (!adminOpen) return;
+        const unsubs = [];
+        unsubs.push(db.collection("profiles").onSnapshot(s => setProfiles(s.docs.map(d => d.data()))));
+        unsubs.push(db.collection("classes").onSnapshot(s => setClasses(s.docs.map(d => ({ id: d.id, ...d.data() })))));
+        unsubs.push(db.collection("enrollments").onSnapshot(s => setEnrollments(s.docs.map(d => d.data()))));
+        return () => unsubs.forEach(u => u());
+      }, [adminOpen]);
 
       function notify(msg){ setToast(msg); }
 
-      // --- Auth ---
-      async function login(username, pw){
-        const u = (username||'').trim().toLowerCase();
-        if (!u) return notify('Enter your username');
-        const user = participants.find(x => x.username.toLowerCase() === u);
-        if (!user) return notify('User not found. Create an account first.');
-        if (!user.passwordHash || !user.salt) return notify('This account has no password set yet.');
-        const hash = await sha256(user.salt + String(pw||''));
-        if (hash !== user.passwordHash) return notify('Incorrect password');
-        setAuthedUser(user.username);
-        setPassword('');
-        notify('Logged in');
+      async function updateMine(patch) { await updateMyProfile(uid, patch); }
+      async function tx(delta, memo) { await addTransaction(uid, delta, memo); }
+      async function undo() { await removeLastTransaction(uid); }
+      async function applyWeeklyAll() { await applyWeeklyNow(uid); notify('Applied weekly deductions'); }
+      async function join(code) {
+        const res = await joinClass(uid, code);
+        notify(res.created ? `Created and joined class ${code}` : `Joined class ${code}`);
       }
 
-      async function createAccount(username, name, pw, pw2){
-        const u = (username||'').trim().toLowerCase();
-        const display = (name||'').trim();
-        if (!u || !display) return notify('Enter a username and display name. Make the username unique! Do not include any personal information (ie. Name, DOB, etc.)');
-        if (!pw) return notify('Enter a password');
-        if (pw !== pw2) return notify('Passwords do not match');
-        if (/[^a-z0-9_.-]/i.test(u)) return notify('Username may contain letters, numbers, _ . -');
-        if (participants.some(p => p.username.toLowerCase() === u)) return notify('Username already taken');
-
-        const salt = randomSalt();
-        const passwordHash = await sha256(salt + pw);
-        const user = {
-          id: Date.now(),
-          username: u,
-          name: display,
-          salt,
-          passwordHash,
-          subscriptionActive: false,
-          weeklyDeductions: [],
-          goals: [],
-          budgets: {},
-          transactions: [],
-        };
-        setParticipants(prev => [...prev, user]);
-        setPassword(''); setConfirmPw(''); setNewName(''); setIsCreating(false);
-        notify('Account created. Please log in.');
+      async function adminToggleSub(targetUid, active) {
+        await db.collection("profiles").doc(targetUid).update({ subscriptionActive: !!active });
       }
-
-      function logout(){ setAuthedUser(''); setPassword(''); }
-
-      // --- Admin ops ---
-      function adminAdjust(userId, delta, memo){
-        setParticipants(prev => prev.map(u => {
-          if (u.id !== userId) return u;
-          return {...u, transactions: [...(u.transactions||[]), { amount: Number(delta), memo: memo||null, ts: now() }] };
-        }));
+      async function adminAdjust(targetUid, delta, memo) {
+        await addTransaction(targetUid, delta, memo);
       }
-      function adminSub(userId){ setParticipants(prev => prev.map(u => u.id===userId? {...u, subscriptionActive:true}:u)); }
-      function adminCancel(userId){ setParticipants(prev => prev.map(u => u.id===userId? {...u, subscriptionActive:false}:u)); }
-      function adminDelete(userId){
-        if(!confirm('Delete participant?')) return;
-        const deleted = participants.find(u=>u.id===userId);
-        setParticipants(prev => prev.filter(u => u.id!==userId));
-        if(currentUser?.id===userId) logout();
-        if (deleted) {
-          setClasses(prev => prev.map(c => ({...c, members: c.members.filter(m => m !== deleted.username)})));
+      async function renameClass(classId, newTitle) {
+        await db.collection("classes").doc(classId).update({ title: newTitle || null });
+      }
+      async function removeFromClass(classId, targetUid) {
+        const snaps = await db.collection("enrollments").where("classId","==",classId).where("uid","==",targetUid).get();
+        const batch = db.batch();
+        snaps.forEach(doc => batch.delete(doc.ref));
+        batch.commit();
+        const prof = await db.collection("profiles").doc(targetUid).get();
+        if (prof.exists && prof.data().classId === classId) {
+          await db.collection("profiles").doc(targetUid).update({ classId: null });
         }
       }
-
-      // --- Classes ops ---
-      function joinClass(classId, username){
-        const id = String(classId);
-        if (!/^[0-9]+$/.test(id)) { notify('Class codes must be numbers'); return; }
-        const alreadyInSome = classes.some(c => c.members.includes(username));
-        if (alreadyInSome) { notify('User is already in a class. Remove them first to reassign.'); return; }
-        if (!classes.find(c => c.id === id)) {
-          setClasses(prev => [...prev, { id, title: null, members: [] }]);
-        }
-        setClasses(prev => prev.map(c => c.id===id ? { ...c, members: c.members.includes(username) ? c.members : [...c.members, username] } : c));
-        notify(`Joined Class #${id}`);
-      }
-      function renameClass(classId, newTitle){
-        const id = String(classId);
-        setClasses(prev => prev.map(c => c.id===id ? { ...c, title: (newTitle||null) } : c));
-      }
-      function removeFromClass(classId, username){
-        const id = String(classId);
-        setClasses(prev => prev.map(c => c.id===id ? { ...c, members: c.members.filter(m => m !== username) } : c));
+      async function onRecovered(recoveredUid) {
+        setUid(recoveredUid);
+        const p = await getMyProfile(recoveredUid);
+        setProfile(p);
+        notify('Recovered profile loaded');
       }
 
-      function updateMe(mut){
-        setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u));
-      }
-      function applyMyWeeklyNow(){
-        const me = currentUser; if(!me) return;
-        setParticipants(prev => prev.map(u => {
-          if (u.username !== me.username) return u;
-          const txs = [...(u.transactions||[])];
-          (u.weeklyDeductions||[]).forEach(d => txs.push({ amount: -Number(d.amount), memo: `Weekly: ${d.name}`, ts: now() }));
-          return {...u, transactions: txs};
-        }));
-        notify('Applied weekly deductions');
-      }
-
-      // ---------- Screens ----------
-      if (!currentUser){
+      if (!profile) {
         return (
-          <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
+          <div className="min-h-screen flex items-center justify-center p-6 bg-white">
             <div className="bg-white max-w-md w-full rounded-2xl shadow p-6 border border-blue-100">
-              <div className="flex items-center justify-between mb-3">
-                <h1 className="text-2xl font-bold text-blue-800">Student Banking {isCreating ? 'Create Account' : 'Login'}</h1>
-              </div>
-
-              {!isCreating ? (
-                <>
-                  <p className="text-sm text-slate-600 mb-4">Log in with your <strong>username</strong> and <strong>password</strong>.</p>
-
-                  <label className="text-sm block mb-1">Username</label>
-                  <input className="border border-blue-200 w-full p-2 rounded mb-3" placeholder="yourname" value={loginUser} onChange={e=>setLoginUser(e.target.value)} />
-
-                  <label className="text-sm block mb-1">Password</label>
-                  <input type="password" className="border border-blue-200 w-full p-2 rounded mb-4" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
-
-                  <button className="w-full bg-blue-600 text-white py-2 rounded mb-3" onClick={()=>login(loginUser, password)}>Login</button>
-                  <button className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2 rounded" onClick={()=>setIsCreating(true)}>Create an account</button>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-600 mb-4">Create a new account. Pick a unique username.</p>
-
-                  <label className="text-sm block mb-1">Username</label>
-                  <input className="border border-blue-200 w-full p-2 rounded mb-3" placeholder="yourname" value={loginUser} onChange={e=>setLoginUser(e.target.value)} />
-
-                  <label className="text-sm block mb-1">Display Name</label>
-                  <input className="border border-blue-200 w-full p-2 rounded mb-3" placeholder="e.g., Ava" value={newName} onChange={e=>setNewName(e.target.value)} />
-
-                  <label className="text-sm block mb-1">Password</label>
-                  <input type="password" className="border border-blue-200 w-full p-2 rounded mb-3" placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} />
-
-                  <label className="text-sm block mb-1">Confirm Password</label>
-                  <input type="password" className="border border-blue-200 w-full p-2 rounded mb-4" placeholder="••••••••" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} />
-
-                  <button className="w-full bg-blue-600 text-white py-2 rounded mb-3" onClick={()=>createAccount(loginUser, newName, password, confirmPw)}>Create Account</button>
-                  <button className="w-full bg-blue-50 text-blue-700 border border-blue-200 py-2 rounded" onClick={()=>setIsCreating(false)}>Back to login</button>
-                </>
-              )}
+              <h1 className="text-2xl font-bold text-blue-800 mb-2">Student Banking</h1>
+              <p className="text-sm text-slate-600">Creating a pseudonymous account…</p>
             </div>
           </div>
         );
       }
 
-      // Dashboard
+      const isAdminVisible = adminOpen;
+
       return (
         <div className="min-h-screen p-6 bg-white">
           <header className="max-w-5xl mx-auto mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-blue-800">Student Banking Dashboard</h1>
-              <div className="text-sm text-slate-600">Logged in as <strong>{currentUser.name}</strong> @{currentUser.username} {isAdmin && <span className="ml-1">(Admin)</span>}</div>
+              <div className="text-sm text-slate-600">Signed in as <strong>{profile.alias}</strong> · uid …{String(profile.uid).slice(-6)}</div>
             </div>
             <div className="flex items-center gap-2">
-              <button className="px-3 py-2 text-sm rounded bg-blue-800 text-white" onClick={()=>{ setAuthedUser(''); setPassword(''); }}>Logout</button>
+              {!isAdminVisible && <AdminGate onOpen={()=>setAdminOpen(true)} />}
+              {isAdminVisible && <Pill>Admin View ON</Pill>}
             </div>
           </header>
 
           <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-            {isAdmin ? (
+            {isAdminVisible ? (
               <>
                 <AdminPanel
-                  participants={participants}
+                  profiles={profiles}
                   classes={classes}
-                  onAdjust={adminAdjust}
-                  onSubscribe={adminSub}
-                  onCancel={adminCancel}
-                  onDelete={adminDelete}
+                  enrollments={enrollments}
                   onRenameClass={renameClass}
+                  onToggleSub={adminToggleSub}
+                  onAdjust={adminAdjust}
                   onRemoveFromClass={removeFromClass}
                 />
                 <aside className="bg-white p-5 rounded-2xl shadow-sm space-y-4 border border-blue-100">
-                  <h3 className="text-lg font-semibold text-blue-800">Unassigned Participants</h3>
-                  <ul className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                    {participants.filter(p => !classes.some(c => c.members.includes(p.username))).map(p => (
-                      <li key={p.id} className="flex items-center justify-between bg-blue-50 p-2 rounded border border-blue-100">
-                        <div>
-                          <div className="font-medium text-sm">{p.name}</div>
-                          <div className="text-xs text-slate-500">@{p.username}</div>
-                        </div>
-                        <div className="text-xs">{fmtUSD(computeBalance(p))}</div>
-                      </li>
-                    ))}
-                  </ul>
+                  <h3 className="text-lg font-semibold text-blue-800">Recovery Tools</h3>
+                  <RecoveryLinkCard onLinked={onRecovered} />
                 </aside>
               </>
             ) : (
               <>
                 <UserPanel
-                  user={currentUser}
-                  updateUser={(mut)=> setParticipants(prev => prev.map(u => u.username===currentUser.username ? (typeof mut==='function'? mut(u):{...u, ...mut}) : u)) }
-                  applyWeeklyAll={applyMyWeeklyNow}
-                  onJoinClass={joinClass}
+                  profile={profile}
+                  onUpdate={updateMine}
+                  onJoinClass={join}
+                  onApplyWeekly={applyWeeklyAll}
+                  onTx={tx}
+                  onUndo={undo}
                 />
-                <ChatboxPanel />
+                <aside className="bg-white p-5 rounded-2xl shadow-sm space-y-4 border border-blue-100">
+                  <h3 className="text-lg font-semibold text-blue-800">Account Tools</h3>
+                  <RecoveryCard uid={profile.uid} currentAlias={profile.alias} />
+                  <RecoveryLinkCard onLinked={onRecovered} />
+                  <div className="p-4 rounded-2xl border border-blue-100 bg-white">
+                    <div className="font-semibold text-blue-800 mb-1">Privacy</div>
+                    <p className="text-sm text-slate-600">No names, DOB, or emails are stored. Your identity is a random alias and UID.</p>
+                  </div>
+                </aside>
               </>
             )}
           </main>
