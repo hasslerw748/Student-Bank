@@ -14,7 +14,7 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Firebase compat SDKs (works in simple script tags) -->
+  <!-- Firebase compat SDKs (simpler for inline scripts) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -24,13 +24,13 @@
   </style>
 </head>
 
-<body class="h-full bg-white text-slate-900">
+<body class="h-full bg-slate-50 text-slate-900">
   <div id="root" class="h-full"></div>
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // ---------------- FIREBASE CONFIG (YOUR PROJECT) ----------------
+    // ---------- FIREBASE SETUP ----------
     const firebaseConfig = {
       apiKey: "AIzaSyD7jHtDJI3IWHY0hfxc0UP4BDg8O0X5jWs",
       authDomain: "student-banking-3c89e.firebaseapp.com",
@@ -45,18 +45,14 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    // ---------------- HELPERS ----------------
-    const ADMIN_CODE = "teacher123"; // change this for your class
+    const ADMIN_CODE = "teacher123"; // change this to your own teacher code
 
-    function makeAlias() {
-      const words = ["Otter", "Hawk", "Wolf", "Lynx", "Raven", "Falcon", "Cedar", "Maple", "Bison", "Heron"];
-      const w = words[Math.floor(Math.random() * words.length)];
-      const num = Math.floor(1000 + Math.random() * 9000);
-      return `${w}-${num}`;
-    }
-
+    // ---------- HELPERS ----------
     function fmtUSD(n) {
-      return (Number(n) || 0).toLocaleString(undefined, { style: "currency", currency: "USD" });
+      return (Number(n) || 0).toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD"
+      });
     }
 
     function computeBalance(profile) {
@@ -70,120 +66,150 @@
         return () => clearTimeout(t);
       }, [onClose]);
       return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-800 text-white text-sm px-3 py-2 rounded shadow-lg">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
           {text}
         </div>
       );
     }
 
-    // ---------------- MAIN APP ----------------
+    // ---------- MAIN APP ----------
     function App() {
-      const [profile, setProfile] = useState(null);
       const [uid, setUid] = useState(null);
+      const [profile, setProfile] = useState(null);
       const [loading, setLoading] = useState(true);
       const [initError, setInitError] = useState("");
+
       const [toast, setToast] = useState(null);
 
       const [isAdmin, setIsAdmin] = useState(false);
       const [adminCodeInput, setAdminCodeInput] = useState("");
-      const [roster, setRoster] = useState([]);
 
-      // sign in anonymously and create profile if needed
+      const [roster, setRoster] = useState([]);
+      const [selectedUserId, setSelectedUserId] = useState(null);
+
+      // sign in anonymously + ensure profile
       useEffect(() => {
         (async () => {
           try {
             const cred = await auth.signInAnonymously();
-            const u = cred.user;
-            setUid(u.uid);
+            const user = cred.user;
+            setUid(user.uid);
 
-            const ref = db.collection("profiles").doc(u.uid);
+            const ref = db.collection("profiles").doc(user.uid);
             const snap = await ref.get();
 
             if (!snap.exists) {
               await ref.set({
-                uid: u.uid,
-                alias: makeAlias(),
+                uid: user.uid,
                 classCode: null,
                 transactions: [],
-                weekly: [],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
               });
             }
 
-            // subscribe to my profile document
             ref.onSnapshot(doc => {
               if (doc.exists) setProfile(doc.data());
+              setLoading(false);
             });
-
-            setLoading(false);
           } catch (err) {
             console.error(err);
-            setInitError(err.message || "Error connecting to database.");
+            setInitError(err.message || "Error connecting to Firebase.");
             setLoading(false);
           }
         })();
       }, []);
 
-      // simple notifications
       function notify(msg) {
         setToast(msg);
       }
 
-      // ----- student actions -----
-      async function addTx(amount, memo) {
+      // ----- Student actions -----
+      async function addMyTransaction(amount, memo) {
         if (!uid) return;
-        const n = Number(amount);
-        if (!n) return;
+        const value = Number(amount);
+        if (!value) return;
         const ref = db.collection("profiles").doc(uid);
         await ref.update({
           transactions: firebase.firestore.FieldValue.arrayUnion({
-            amount: n,
+            amount: value,
             memo: memo || null,
             ts: Date.now()
           })
         });
       }
 
-      async function undoLast() {
+      async function undoMyLast() {
         if (!uid || !profile || !profile.transactions?.length) return;
         const arr = [...profile.transactions];
         arr.pop();
         await db.collection("profiles").doc(uid).update({ transactions: arr });
       }
 
-      async function joinClass(code) {
+      async function setMyClassCode(code) {
         if (!uid) return;
         const clean = String(code || "").trim();
         if (!clean) return;
         await db.collection("profiles").doc(uid).update({ classCode: clean });
-        notify("Joined class " + clean);
+        notify("Class updated.");
       }
 
-      // ----- admin view -----
-      async function tryAdmin() {
-        if (adminCodeInput.trim() === ADMIN_CODE) {
-          setIsAdmin(true);
-          // load all profiles (rules must allow read; for testing use simple rules)
-          db.collection("profiles").onSnapshot(snap => {
-            const list = [];
-            snap.forEach(d => list.push(d.data()));
-            setRoster(list);
-          });
-          notify("Admin view enabled");
-        } else {
-          notify("Wrong admin code");
+      // ----- Admin mode -----
+      function enterAdmin() {
+        if (adminCodeInput.trim() !== ADMIN_CODE) {
+          notify("Incorrect teacher code.");
+          return;
+        }
+        setIsAdmin(true);
+        notify("Admin view enabled.");
+
+        db.collection("profiles").onSnapshot(snap => {
+          const list = [];
+          snap.forEach(d => list.push(d.data()));
+          setRoster(list);
+          if (!selectedUserId && list.length > 0) {
+            setSelectedUserId(list[0].uid);
+          }
+        });
+      }
+
+      async function adminAdjust(uidTarget, delta, memo) {
+        const ref = db.collection("profiles").doc(uidTarget);
+        await ref.update({
+          transactions: firebase.firestore.FieldValue.arrayUnion({
+            amount: Number(delta),
+            memo: memo || `Admin ${delta > 0 ? "+" : ""}${delta}`,
+            ts: Date.now()
+          })
+        });
+        notify("Balance updated.");
+      }
+
+      async function adminDeleteUser(uidTarget) {
+        if (!confirm("Remove this student account?")) return;
+        await db.collection("profiles").doc(uidTarget).delete();
+        notify("Student removed.");
+        if (selectedUserId === uidTarget) {
+          setSelectedUserId(null);
         }
       }
 
-      const balance = useMemo(() => profile ? computeBalance(profile) : 0, [profile]);
+      const myBalance = useMemo(
+        () => (profile ? computeBalance(profile) : 0),
+        [profile]
+      );
 
-      // ----- UI STATES -----
+      const selectedUser = useMemo(
+        () => roster.find(r => r.uid === selectedUserId) || null,
+        [roster, selectedUserId]
+      );
+
+      // ---------- UI states ----------
       if (loading) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-white">
-            <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow">
-              <h1 className="text-2xl font-bold text-blue-800 mb-2">Student Banking</h1>
-              <p className="text-sm text-slate-600">Creating your private account…</p>
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="bg-white border border-blue-100 rounded-2xl p-8 shadow">
+              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
+              <p className="text-sm text-slate-600">Creating your account…</p>
             </div>
           </div>
         );
@@ -191,15 +217,10 @@
 
       if (initError) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-white">
-            <div className="bg-white border border-red-200 rounded-2xl p-6 shadow">
-              <h1 className="text-2xl font-bold text-blue-800 mb-2">Student Banking</h1>
-              <p className="text-sm text-red-600">
-                Error talking to Firebase: {initError}
-              </p>
-              <p className="text-xs text-slate-500 mt-2">
-                Double-check: Anonymous auth is enabled, Firestore is in Native mode, and rules allow read/write for signed-in users.
-              </p>
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="bg-white border border-red-200 rounded-2xl p-8 shadow">
+              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
+              <p className="text-sm text-red-600">Error: {initError}</p>
             </div>
           </div>
         );
@@ -207,96 +228,118 @@
 
       if (!profile) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-white">
-            <div className="bg-white border border-blue-100 rounded-2xl p-6 shadow">
-              <h1 className="text-2xl font-bold text-blue-800 mb-2">Student Banking</h1>
-              <p className="text-sm text-slate-600">Loading your account…</p>
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="bg-white border border-blue-100 rounded-2xl p-8 shadow">
+              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
+              <p className="text-sm text-slate-600">Loading…</p>
             </div>
           </div>
         );
       }
 
-      // ----- MAIN DASHBOARD -----
+      // ---------- Admin View ----------
+      if (isAdmin) {
+        return (
+          <div className="min-h-screen bg-slate-50 px-6 py-4">
+            <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-blue-900">Student Banking — Admin</h1>
+                <p className="text-sm text-slate-600">
+                  View classes, adjust balances, and manage students. (IDs shown are non-identifying.)
+                </p>
+              </div>
+              <button
+                className="px-3 py-1.5 text-xs rounded bg-slate-200 text-slate-700"
+                onClick={() => {
+                  setIsAdmin(false);
+                  setRoster([]);
+                  setSelectedUserId(null);
+                }}
+              >
+                Exit Admin View
+              </button>
+            </header>
+
+            <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 h-[80vh]">
+              {/* Classes & Students */}
+              <section className="lg:col-span-2 bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
+                <h2 className="text-lg font-semibold text-blue-900 mb-3">Classes & Students</h2>
+                <AdminClassList
+                  roster={roster}
+                  selectedUserId={selectedUserId}
+                  onSelectUser={setSelectedUserId}
+                  onAdjust={adminAdjust}
+                  onDeleteUser={adminDeleteUser}
+                />
+              </section>
+
+              {/* Transaction info for selected student */}
+              <section className="bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
+                <h2 className="text-lg font-semibold text-blue-900 mb-3">Transaction Information</h2>
+                <AdminTransactionPanel user={selectedUser} />
+              </section>
+            </main>
+
+            {toast && <Toast text={toast} onClose={() => setToast(null)} />}
+          </div>
+        );
+      }
+
+      // ---------- Student View ----------
       return (
-        <div className="min-h-screen bg-white p-6">
-          <header className="max-w-5xl mx-auto mb-6 flex items-center justify-between gap-4">
+        <div className="min-h-screen bg-slate-50 px-6 py-4 flex flex-col">
+          <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-blue-800">Student Banking Dashboard</h1>
+              <h1 className="text-3xl font-bold text-blue-900">Student Banking</h1>
               <p className="text-sm text-slate-600">
-                Alias: <strong>{profile.alias}</strong>{" "}
-                · ID …{String(profile.uid || uid).slice(-6)}{" "}
-                · Class: {profile.classCode || "none"}
-              </p>
-              <p className="text-xs text-slate-500">
-                No names, emails, or birthdays are stored — only this alias.
+                Track your classroom bank balance and transactions.
               </p>
             </div>
-
-            <div className="flex flex-col items-end gap-2">
-              {!isAdmin && (
-                <div className="flex gap-1 items-center">
-                  <input
-                    className="border border-blue-200 rounded px-2 py-1 text-xs"
-                    placeholder="Admin code"
-                    value={adminCodeInput}
-                    onChange={e => setAdminCodeInput(e.target.value)}
-                  />
-                  <button
-                    className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
-                    onClick={tryAdmin}
-                  >
-                    Admin
-                  </button>
-                </div>
-              )}
-              {isAdmin && (
-                <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-xs border border-blue-200">
-                  Admin view
-                </span>
-              )}
+            <div className="flex items-center gap-2">
+              <input
+                className="border border-blue-200 rounded px-2 py-1 text-xs"
+                placeholder="Teacher code"
+                value={adminCodeInput}
+                onChange={e => setAdminCodeInput(e.target.value)}
+              />
+              <button
+                className="bg-blue-900 text-white px-3 py-1.5 rounded text-xs"
+                onClick={enterAdmin}
+              >
+                Admin
+              </button>
             </div>
           </header>
 
-          <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Student panel */}
-            <section className="md:col-span-2 bg-white border border-blue-100 rounded-2xl p-5 shadow-sm space-y-6">
-              {/* Balance */}
-              <div>
-                <h2 className="text-lg font-semibold text-blue-800 mb-1">Your Account</h2>
-                <p className="text-sm text-slate-700">
-                  Balance: <strong>{fmtUSD(balance)}</strong>
+          <main className="max-w-6xl mx-auto flex-1 flex flex-col gap-4">
+            {/* Big Balance Panel */}
+            <div className="bg-blue-900 text-white rounded-2xl p-6 text-center shadow">
+              <h2 className="text-lg font-semibold">Current Balance</h2>
+              <p className="text-5xl font-bold mt-1">{fmtUSD(myBalance)}</p>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-4 flex-1">
+              {/* Left: controls + list */}
+              <section className="flex-1 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Class code:</span>
+                  <ClassCodeEditor current={profile.classCode} onSave={setMyClassCode} />
+                </div>
+                <StudentTransactionForm onAdd={addMyTransaction} onUndo={undoMyLast} />
+                <StudentTransactionList transactions={profile.transactions || []} />
+              </section>
+
+              {/* Right: transaction info */}
+              <section className="w-full lg:w-1/3 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col">
+                <h2 className="text-lg font-semibold text-blue-900 mb-1">
+                  Transaction Information
+                </h2>
+                <p className="text-xs text-slate-600 mb-2">
+                  See the date, time, amount, and notes for your recent activity.
                 </p>
-              </div>
-
-              {/* Class join */}
-              <ClassJoin onJoin={joinClass} current={profile.classCode} />
-
-              {/* Transactions */}
-              <Transactions profile={profile} onAdd={addTx} onUndo={undoLast} />
-
-              {/* Simple note */}
-              <div className="text-xs text-slate-500">
-                Tip: Use this to track class rewards, fines, or savings. Everything is tied to your alias, so it works on any device.
-              </div>
-            </section>
-
-            {/* Admin / side panel */}
-            <aside className="bg-white border border-blue-100 rounded-2xl p-5 shadow-sm space-y-4">
-              <h2 className="text-lg font-semibold text-blue-800">Info</h2>
-              <p className="text-xs text-slate-600">
-                This site only stores:
-                <br />• Random alias
-                <br />• Class code
-                <br />• Fake bank amounts/transactions
-              </p>
-              <p className="text-xs text-slate-600">
-                Teachers can enter the admin code to see a roster of aliases and balances. No identifying info is shown.
-              </p>
-
-              {isAdmin && (
-                <AdminRoster roster={roster} />
-              )}
-            </aside>
+                <StudentTransactionInfo transactions={profile.transactions || []} />
+              </section>
+            </div>
           </main>
 
           {toast && <Toast text={toast} onClose={() => setToast(null)} />}
@@ -304,98 +347,113 @@
       );
     }
 
-    // ------------- Subcomponents -------------
+    // ---------- STUDENT COMPONENTS ----------
 
-    function ClassJoin({ onJoin, current }) {
-      const [code, setCode] = useState("");
+    function ClassCodeEditor({ current, onSave }) {
+      const [value, setValue] = useState(current || "");
 
       return (
-        <div className="p-3 rounded-2xl border border-blue-100 bg-blue-50/40 flex flex-wrap items-center gap-2">
-          <span className="text-sm text-blue-900">Join / change class code:</span>
+        <div className="flex items-center gap-2">
           <input
-            className="border border-blue-200 rounded px-2 py-1 text-sm w-28"
-            placeholder="e.g. 1A"
-            value={code}
-            onChange={e => setCode(e.target.value)}
+            className="border border-blue-200 rounded px-2 py-1 text-xs w-24"
+            value={value}
+            placeholder="e.g. 2A"
+            onChange={e => setValue(e.target.value)}
+            onBlur={() => { if (value.trim()) onSave(value.trim()); }}
           />
           <button
-            className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm"
-            onClick={() => { if (code.trim()) { onJoin(code); setCode(""); } }}
+            className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+            onClick={() => { if (value.trim()) onSave(value.trim()); }}
           >
             Save
           </button>
-          <span className="text-xs text-slate-500">
+          <span className="text-[10px] text-slate-500">
             Current: {current || "none"}
           </span>
         </div>
       );
     }
 
-    function Transactions({ profile, onAdd, onUndo }) {
+    function StudentTransactionForm({ onAdd, onUndo }) {
       const [amount, setAmount] = useState("");
       const [memo, setMemo] = useState("");
 
-      const list = (profile.transactions || []).slice().reverse();
-
-      function add(deltaSign) {
+      function handle(sign) {
         const n = parseFloat(amount);
         if (Number.isNaN(n) || n <= 0) return;
-        const val = deltaSign * n;
-        onAdd(val, memo || (val > 0 ? "Deposit" : "Withdraw"));
+        const value = sign * n;
+        onAdd(value, memo || (value > 0 ? "Deposit" : "Withdraw"));
         setAmount("");
         setMemo("");
       }
 
       return (
-        <div className="space-y-2">
-          <h3 className="font-medium text-blue-800">Transactions</h3>
-          <div className="flex flex-wrap gap-2 items-center">
-            <input
-              type="number"
-              step="0.01"
-              className="border border-blue-200 rounded px-2 py-1 text-sm w-24"
-              placeholder="$"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-            />
-            <input
-              type="text"
-              className="border border-blue-200 rounded px-2 py-1 text-sm w-40"
-              placeholder="Memo (optional)"
-              value={memo}
-              onChange={e => setMemo(e.target.value)}
-            />
-            <button
-              className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm"
-              onClick={() => add(+1)}
-            >
-              Deposit
-            </button>
-            <button
-              className="bg-blue-800 text-white px-3 py-1.5 rounded text-sm"
-              onClick={() => add(-1)}
-            >
-              Withdraw
-            </button>
-            <button
-              className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded text-xs"
-              onClick={onUndo}
-            >
-              Undo last
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="number"
+            step="0.01"
+            className="border border-blue-200 rounded px-2 py-1 text-sm w-24"
+            placeholder="$"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+          />
+          <input
+            type="text"
+            className="border border-blue-200 rounded px-2 py-1 text-sm flex-1 min-w-[140px]"
+            placeholder="Note (optional)"
+            value={memo}
+            onChange={e => setMemo(e.target.value)}
+          />
+          <button
+            className="bg-green-600 text-white px-3 py-1.5 rounded text-sm"
+            onClick={() => handle(+1)}
+          >
+            Deposit
+          </button>
+          <button
+            className="bg-red-700 text-white px-3 py-1.5 rounded text-sm"
+            onClick={() => handle(-1)}
+          >
+            Withdraw
+          </button>
+          <button
+            className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-xs border border-slate-200"
+            onClick={onUndo}
+          >
+            Undo last
+          </button>
+        </div>
+      );
+    }
 
-          <ul className="mt-2 max-h-56 overflow-y-auto border border-blue-100 rounded bg-white divide-y divide-blue-50">
-            {list.length === 0 && (
-              <li className="p-2 text-xs text-slate-500">No transactions yet.</li>
-            )}
-            {list.map((t, i) => (
-              <li key={i} className="p-2 flex items-center justify-between text-xs">
+    function StudentTransactionList({ transactions }) {
+      const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      if (!rows.length) {
+        return (
+          <div className="mt-2 text-xs text-slate-500">
+            No transactions yet. Add a deposit or withdrawal to get started.
+          </div>
+        );
+      }
+
+      return (
+        <div className="mt-2 flex-1 overflow-y-auto border border-blue-100 rounded-xl bg-white">
+          <ul className="divide-y divide-blue-50 text-xs">
+            {rows.map((t, i) => (
+              <li key={i} className="px-3 py-2 flex items-center justify-between">
                 <span>
                   {new Date(t.ts || Date.now()).toLocaleString()} — {t.memo || "—"}
                 </span>
-                <span className={t.amount >= 0 ? "text-green-700 font-semibold" : "text-red-700 font-semibold"}>
-                  {t.amount >= 0 ? "+" : ""}{Number(t.amount).toFixed(2)}
+                <span
+                  className={
+                    t.amount >= 0
+                      ? "text-green-700 font-semibold"
+                      : "text-red-700 font-semibold"
+                  }
+                >
+                  {t.amount >= 0 ? "+" : ""}
+                  {Number(t.amount).toFixed(2)}
                 </span>
               </li>
             ))}
@@ -404,35 +462,210 @@
       );
     }
 
-    function AdminRoster({ roster }) {
-      const sorted = [...roster].sort((a, b) => {
-        const ca = a.classCode || "";
-        const cb = b.classCode || "";
-        if (ca === cb) return (a.alias || "").localeCompare(b.alias || "");
-        return ca.localeCompare(cb);
+    function StudentTransactionInfo({ transactions }) {
+      const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      if (!rows.length) {
+        return (
+          <div className="text-xs text-slate-500">
+            When you make transactions, details will show here.
+          </div>
+        );
+      }
+
+      return (
+        <div className="text-[10px] space-y-1 overflow-y-auto flex-1">
+          {rows.slice(0, 40).map((t, i) => (
+            <div key={i} className="border-b border-slate-100 pb-1">
+              <div
+                className={
+                  t.amount >= 0
+                    ? "text-green-700 font-semibold"
+                    : "text-red-700 font-semibold"
+                }
+              >
+                {t.amount >= 0 ? "+" : ""}
+                {Number(t.amount).toFixed(2)}
+              </div>
+              <div className="text-slate-600">{t.memo || "No note"}</div>
+              <div className="text-slate-500">
+                {new Date(t.ts || Date.now()).toLocaleDateString()}{" "}
+                {new Date(t.ts || Date.now()).toLocaleTimeString()}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ---------- ADMIN COMPONENTS ----------
+
+    function AdminClassList({
+      roster,
+      selectedUserId,
+      onSelectUser,
+      onAdjust,
+      onDeleteUser
+    }) {
+      if (!roster.length) {
+        return (
+          <p className="text-xs text-slate-500">No student accounts yet.</p>
+        );
+      }
+
+      const groups = {};
+      roster.forEach(p => {
+        const key = p.classCode || "Unassigned";
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
+      });
+
+      const classCodes = Object.keys(groups).sort((a, b) => {
+        if (a === "Unassigned") return 1;
+        if (b === "Unassigned") return -1;
+        return a.localeCompare(b);
       });
 
       return (
-        <div className="mt-2 border border-blue-100 rounded-2xl p-3 bg-blue-50/40">
-          <h3 className="font-semibold text-blue-800 text-sm mb-2">Roster (aliases only)</h3>
-          <div className="max-h-64 overflow-y-auto space-y-1 text-[10px]">
-            {sorted.length === 0 && (
-              <div className="text-slate-500">No students yet.</div>
-            )}
-            {sorted.map(p => (
-              <div key={p.uid} className="flex justify-between gap-2">
-                <span>
-                  {p.classCode || "—"} · {p.alias} · …{String(p.uid).slice(-4)}
+        <div className="space-y-4">
+          {classCodes.map(code => (
+            <div
+              key={code}
+              className="border border-blue-100 rounded-xl p-3 bg-slate-50/80"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-blue-900 text-sm">
+                  Class: {code}
+                </h3>
+                <span className="text-[10px] text-slate-500">
+                  Students: {groups[code].length}
                 </span>
-                <span>{fmtUSD(computeBalance(p))}</span>
               </div>
-            ))}
+              <div className="space-y-1">
+                {groups[code]
+                  .sort((a, b) =>
+                    (a.uid || "").localeCompare(b.uid || "")
+                  )
+                  .map((p, index) => {
+                    const bal = fmtUSD(computeBalance(p));
+                    const shortId = String(p.uid || "").slice(-4);
+                    const isSelected = p.uid === selectedUserId;
+                    return (
+                      <div
+                        key={p.uid}
+                        className={
+                          "flex items-center justify-between gap-2 px-2 py-1 rounded cursor-pointer " +
+                          (isSelected ? "bg-blue-100" : "bg-white")
+                        }
+                        onClick={() => onSelectUser(p.uid)}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-slate-800">
+                            Student {index + 1} · ID …{shortId}
+                          </span>
+                          <span className="text-[10px] text-slate-500">
+                            Balance: {bal}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="px-2 py-0.5 text-[9px] rounded bg-green-600 text-white"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onAdjust(p.uid, +5, "Admin +5");
+                            }}
+                          >
+                            +$5
+                          </button>
+                          <button
+                            className="px-2 py-0.5 text-[9px] rounded bg-red-600 text-white"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onAdjust(p.uid, -5, "Admin -5");
+                            }}
+                          >
+                            -$5
+                          </button>
+                          <button
+                            className="px-2 py-0.5 text-[9px] rounded bg-slate-300 text-slate-800"
+                            onClick={e => {
+                              e.stopPropagation();
+                              onDeleteUser(p.uid);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function AdminTransactionPanel({ user }) {
+      if (!user) {
+        return (
+          <p className="text-xs text-slate-500">
+            Select a student from the left to see their transactions.
+          </p>
+        );
+      }
+
+      const rows = [...(user.transactions || [])].sort(
+        (a, b) => (b.ts || 0) - (a.ts || 0)
+      );
+      const shortId = String(user.uid || "").slice(-4);
+
+      return (
+        <div className="flex flex-col h-full text-[10px]">
+          <div className="mb-2 text-slate-700">
+            <div>Student ID: …{shortId}</div>
+            <div>Class: {user.classCode || "Unassigned"} </div>
+            <div>
+              Balance: <strong>{fmtUSD(computeBalance(user))}</strong>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto mt-1 space-y-1">
+            {rows.length === 0 ? (
+              <p className="text-xs text-slate-500">No transactions yet.</p>
+            ) : (
+              rows.map((t, i) => (
+                <div
+                  key={i}
+                  className="border-b border-slate-100 pb-1"
+                >
+                  <div className="flex justify-between gap-2">
+                    <span
+                      className={
+                        t.amount >= 0
+                          ? "text-green-700 font-semibold"
+                          : "text-red-700 font-semibold"
+                      }
+                    >
+                      {t.amount >= 0 ? "+" : ""}
+                      {Number(t.amount).toFixed(2)}
+                    </span>
+                    <span className="text-slate-500">
+                      {new Date(t.ts || Date.now()).toLocaleDateString()}{" "}
+                      {new Date(t.ts || Date.now()).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div className="text-slate-600">
+                    {t.memo || "No note"}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       );
     }
 
-    // ---------------- RENDER ----------------
+    // ---------- RENDER ----------
     const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(<App />);
   </script>
