@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Student Banking — Pseudonymous + Classes + Admin (Claims)</title>
+  <title>Student Banking</title>
 
   <!-- Tailwind CSS -->
   <script>window.tailwind = { config: { darkMode: false } };</script>
@@ -32,7 +32,7 @@
     const { useEffect, useMemo, useState } = React;
 
     // =========================
-    // Firebase Init (YOUR KEYS)
+    // Firebase Init
     // =========================
     const firebaseConfig = {
       apiKey: "AIzaSyBD0mSQYbzt0hYLPfTRYp6BcoD0fPmxS9o",
@@ -42,47 +42,59 @@
       messagingSenderId: "185943826805",
       appId: "1:185943826805:web:43f8f19a8fc3f09522b33c"
     };
+
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
-    const db   = firebase.firestore();
-    const fx   = firebase.functions(); // default region us-central1; adjust if you deploy elsewhere
+    const db = firebase.firestore();
+    const fx = firebase.functions();
 
     // =========================
-    // Helpers (no PII)
+    // Helpers (no real names/emails)
     // =========================
-    function alias() {
+    function makeAlias() {
       const animals = [
-        "Otter","Hawk","Wolf","Lynx","Kestrel","Puma","Fox","Raven","Falcon","Orca",
-        "Bison","Elk","Badger","Heron","Salmon","Cedar","Maple","Aspen","Pine","Birch"
+        "Otter", "Hawk", "Wolf", "Lynx", "Kestrel", "Puma", "Fox", "Raven", "Falcon", "Orca",
+        "Bison", "Elk", "Badger", "Heron", "Salmon", "Cedar", "Maple", "Aspen", "Pine", "Birch"
       ];
       const a = animals[Math.floor(Math.random() * animals.length)];
-      return `${a}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const num = Math.floor(1000 + Math.random() * 9000);
+      return `${a}-${num}`;
     }
+
     async function sha256Hex(text) {
       const enc = new TextEncoder().encode(text);
-      const buf = await crypto.subtle.digest('SHA-256', enc);
-      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
     }
-    function fmtUSD(n){ return (Number(n)||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
+
+    function fmtUSD(n) {
+      return (Number(n) || 0).toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD"
+      });
+    }
+
     const now = () => Date.now();
-    function computeBalance(user){
+
+    function computeBalance(user) {
       const tx = Array.isArray(user.transactions) ? user.transactions : [];
-      return tx.reduce((s,t)=> s + Number(t.amount||0), 0);
+      return tx.reduce((s, t) => s + Number(t.amount || 0), 0);
     }
 
     // =========================
-    // Firestore Accessors
+    // Firestore: student actions
     // =========================
-    async function ensureAnonProfile(classId=null) {
+    async function ensureAnonProfile() {
       const cred = await auth.signInAnonymously();
-      const uid  = cred.user.uid;
-      const profileRef = db.collection("profiles").doc(uid);
-      const snap = await profileRef.get();
+      const uid = cred.user.uid;
+      const ref = db.collection("profiles").doc(uid);
+      const snap = await ref.get();
+
       if (!snap.exists) {
-        await profileRef.set({
+        await ref.set({
           uid,
-          alias: alias(),
-          classId: classId || null,
+          alias: makeAlias(),
+          classId: null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           lastActive: firebase.firestore.FieldValue.serverTimestamp(),
           subscriptionActive: false,
@@ -92,71 +104,115 @@
           transactions: []
         });
       } else {
-        await profileRef.update({ lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+        await ref.update({
+          lastActive: firebase.firestore.FieldValue.serverTimestamp()
+        });
       }
       return uid;
     }
+
     async function getMyProfile(uid) {
       const doc = await db.collection("profiles").doc(uid).get();
       return doc.exists ? doc.data() : null;
     }
+
     async function updateMyProfile(uid, patch) {
       await db.collection("profiles").doc(uid).update({
         ...patch,
         lastActive: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
+
     async function addTransaction(uid, amount, memo) {
       const ref = db.collection("profiles").doc(uid);
       await ref.update({
         transactions: firebase.firestore.FieldValue.arrayUnion({
-          amount: Number(amount), memo: memo || null, ts: now()
+          amount: Number(amount),
+          memo: memo || null,
+          ts: now()
         }),
         lastActive: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
+
     async function removeLastTransaction(uid) {
       const ref = db.collection("profiles").doc(uid);
       const snap = await ref.get();
       if (!snap.exists) return;
       const data = snap.data();
-      const tx = Array.isArray(data.transactions) ? data.transactions.slice(0, -1) : [];
-      await ref.update({ transactions: tx, lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+      const tx = Array.isArray(data.transactions)
+        ? data.transactions.slice(0, -1)
+        : [];
+      await ref.update({
+        transactions: tx,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
+
     async function applyWeeklyNow(uid) {
       const ref = db.collection("profiles").doc(uid);
       const snap = await ref.get();
       if (!snap.exists) return;
       const data = snap.data();
-      const txs = Array.isArray(data.transactions) ? [...data.transactions] : [];
+      const txs = Array.isArray(data.transactions)
+        ? [...data.transactions]
+        : [];
       (data.weeklyDeductions || []).forEach(d => {
-        txs.push({ amount: -Number(d.amount), memo: `Weekly: ${d.name}`, ts: now() });
+        txs.push({
+          amount: -Number(d.amount),
+          memo: `Weekly: ${d.name}`,
+          ts: now()
+        });
       });
-      await ref.update({ transactions: txs, lastActive: firebase.firestore.FieldValue.serverTimestamp() });
+      await ref.update({
+        transactions: txs,
+        lastActive: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
+
     async function joinClass(uid, code) {
-      const q = await db.collection("classes").where("code","==",String(code)).limit(1).get();
+      const classCode = String(code);
+      const q = await db
+        .collection("classes")
+        .where("code", "==", classCode)
+        .limit(1)
+        .get();
+
+      let classId;
+
       if (q.empty) {
         const newDoc = await db.collection("classes").add({
-          code: String(code),
+          code: classCode,
           title: null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        await updateMyProfile(uid, { classId: newDoc.id });
-        await db.collection("enrollments").add({ uid, classId: newDoc.id, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        return { created: true, classId: newDoc.id };
+        classId = newDoc.id;
       } else {
-        const doc = q.docs[0];
-        await updateMyProfile(uid, { classId: doc.id });
-        await db.collection("enrollments").add({ uid, classId: doc.id, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        return { created: false, classId: doc.id };
+        classId = q.docs[0].id;
       }
+
+      await updateMyProfile(uid, { classId });
+      await db.collection("enrollments").add({
+        uid,
+        classId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      return classId;
     }
+
     async function setRecoveryKey(uid, plainKey) {
       const hash = await sha256Hex(plainKey);
-      await db.collection("recovery").doc(hash).set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await db
+        .collection("recovery")
+        .doc(hash)
+        .set({
+          uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
       return hash;
     }
+
     async function resolveRecoveryKey(plainKey) {
       const hash = await sha256Hex(plainKey);
       const doc = await db.collection("recovery").doc(hash).get();
@@ -165,99 +221,226 @@
     }
 
     // =========================
-    // Admin: callable functions
+    // Admin: callable shortcuts
+    // (you already deployed these in Functions)
     // =========================
-    const callRequestAdmin     = (code)      => fx.httpsCallable('requestAdmin')({ code });
-    const callAdminListRoster  = ()          => fx.httpsCallable('adminListRoster')({});
-    const callAdminAdjust      = (uid, d,m)  => fx.httpsCallable('adminAdjust')({ uid, delta: d, memo: m||null });
-    const callAdminToggleSub   = (uid, b)    => fx.httpsCallable('adminToggleSub')({ uid, active: !!b });
-    const callAdminRenameClass = (id, t)     => fx.httpsCallable('adminRenameClass')({ classId: id, title: t||null });
-    const callAdminRemoveFrom  = (id, uid)   => fx.httpsCallable('adminRemoveFromClass')({ classId: id, uid });
+    const callRequestAdmin = code =>
+      fx.httpsCallable("requestAdmin")({ code });
+
+    const callAdminListRoster = () =>
+      fx.httpsCallable("adminListRoster")({});
+
+    const callAdminAdjust = (uid, delta, memo) =>
+      fx.httpsCallable("adminAdjust")({ uid, delta, memo });
+
+    const callAdminToggleSub = (uid, active) =>
+      fx.httpsCallable("adminToggleSub")({ uid, active });
+
+    const callAdminRenameClass = (classId, title) =>
+      fx.httpsCallable("adminRenameClass")({ classId, title });
+
+    const callAdminRemoveFromClass = (classId, uid) =>
+      fx.httpsCallable("adminRemoveFromClass")({ classId, uid });
 
     // =========================
-    // UI primitives
+    // UI: Toast / Progress / Pill
     // =========================
     function Toast({ text, onClose }) {
-      useEffect(() => { const t = setTimeout(onClose, 1800); return () => clearTimeout(t); }, [onClose]);
-      return <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-800 text-white text-sm px-3 py-2 rounded shadow-lg">{text}</div>;
-    }
-    function ProgressBar({ value, max }) {
-      const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+      useEffect(() => {
+        const t = setTimeout(onClose, 1800);
+        return () => clearTimeout(t);
+      }, [onClose]);
       return (
-        <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100">
-          <div className="h-2 bg-blue-600" style={{ width: pct + '%' }} />
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-800 text-white text-sm px-3 py-2 rounded shadow-lg">
+          {text}
         </div>
       );
     }
-    function Pill({children}) {
-      return <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">{children}</span>;
+
+    function ProgressBar({ value, max }) {
+      const pct =
+        max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+      return (
+        <div className="w-full h-2 bg-blue-100 rounded-full overflow-hidden">
+          <div
+            className="h-2 bg-blue-600"
+            style={{ width: pct + "%" }}
+          />
+        </div>
+      );
+    }
+
+    function Pill({ children }) {
+      return (
+        <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          {children}
+        </span>
+      );
     }
 
     // =========================
     // Goal Row
     // =========================
     function GoalRow({ g, onContribute }) {
-      const [contrib, setContrib] = useState('');
-      const saved = Number(g.saved)||0;
-      const target = Number(g.target)||0;
+      const [contrib, setContrib] = useState("");
+      const saved = Number(g.saved) || 0;
+      const target = Number(g.target) || 0;
       const remaining = Math.max(0, target - saved);
+
       return (
         <div className="p-3 rounded border border-blue-100 bg-white">
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="font-medium">{g.name}</div>
-              <div className="text-sm text-slate-600">{fmtUSD(saved)} / {fmtUSD(target)} <span className="text-slate-500">({fmtUSD(remaining)} left)</span></div>
+              <div className="text-sm text-slate-600">
+                {fmtUSD(saved)} / {fmtUSD(target)}{" "}
+                <span className="text-slate-500">
+                  ({fmtUSD(remaining)} left)
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <input className="border border-blue-200 p-1 rounded w-28" type="number" step="0.01" placeholder="$ add" value={contrib} onChange={e=>setContrib(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={()=>{ const n = parseFloat(contrib); if(!Number.isNaN(n) && n>0){ onContribute(n); setContrib(''); } }}>Contribute</button>
+              <input
+                className="border border-blue-200 p-1 rounded w-24"
+                type="number"
+                step="0.01"
+                placeholder="$"
+                value={contrib}
+                onChange={e => setContrib(e.target.value)}
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-1 rounded"
+                onClick={() => {
+                  const n = parseFloat(contrib);
+                  if (!Number.isNaN(n) && n > 0) {
+                    onContribute(n);
+                    setContrib("");
+                  }
+                }}
+              >
+                Add
+              </button>
             </div>
           </div>
-          <div className="mt-2"><ProgressBar value={saved} max={target} /></div>
+          <div className="mt-2">
+            <ProgressBar value={saved} max={target} />
+          </div>
         </div>
       );
     }
 
     // =========================
-    // Admin Panel (via Functions)
+    // Admin Panel (data from Functions)
     // =========================
-    function AdminPanel({ roster, onAdjust, onToggleSub, onRenameClass, onRemoveFromClass }) {
-      const [q, setQ] = useState('');
+    function AdminPanel({
+      roster,
+      onAdjust,
+      onToggleSub,
+      onRenameClass,
+      onRemoveFromClass
+    }) {
+      const [q, setQ] = useState("");
       const search = q.trim().toLowerCase();
+
       const filteredProfiles = useMemo(() => {
         if (!search) return roster.profiles;
-        return roster.profiles.filter(p =>
-          String(p.alias||'').toLowerCase().includes(search) ||
-          String(p.uid||'').slice(-6).includes(search)
-        );
+        return roster.profiles.filter(p => {
+          const alias = String(p.alias || "").toLowerCase();
+          const tail = String(p.uid || "").slice(-6);
+          return (
+            alias.includes(search) ||
+            tail.includes(search)
+          );
+        });
       }, [roster, search]);
 
-      const classMap = new Map(roster.classes.map(c => [c.id, c]));
+      const classMap = new Map(
+        roster.classes.map(c => [c.id, c])
+      );
 
       return (
         <section className="md:col-span-2 bg-white p-5 rounded-2xl shadow-sm space-y-6 border border-blue-100">
+          {/* Profiles */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-blue-800">Admin · Profiles (no PII)</h3>
-              <input className="border border-blue-200 rounded px-2 py-1 text-sm" placeholder="Search alias or last 6 UID" value={q} onChange={e=>setQ(e.target.value)} />
+              <h3 className="text-lg font-semibold text-blue-800">
+                Admin · Profiles (no real names)
+              </h3>
+              <input
+                className="border border-blue-200 rounded px-2 py-1 text-sm"
+                placeholder="Search alias or last 6 of UID"
+                value={q}
+                onChange={e => setQ(e.target.value)}
+              />
             </div>
             <ul className="divide-y divide-blue-100 max-h-[320px] overflow-auto pr-1">
               {filteredProfiles.map(p => {
                 const bal = fmtUSD(computeBalance(p));
-                const uidTail = String(p.uid||'').slice(-6);
+                const uidTail = String(p.uid || "").slice(-6);
                 return (
-                  <li key={p.uid} className="py-3 flex items-center justify-between">
+                  <li
+                    key={p.uid}
+                    className="py-3 flex items-center justify-between"
+                  >
                     <div className="space-y-1">
-                      <div className="font-medium">{p.alias} <span className="text-slate-500">· uid …{uidTail}</span></div>
-                      <div className="text-xs text-slate-600">Balance: <strong>{bal}</strong></div>
-                      <div className="text-xs text-slate-500">Subscription: {p.subscriptionActive ? <Pill>Active</Pill> : <Pill>Inactive</Pill>}</div>
-                      <div className="text-xs text-slate-500">Class: {p.classId ? (classMap.get(p.classId)?.code ?? p.classId) : '—'}</div>
+                      <div className="font-medium">
+                        {p.alias}{" "}
+                        <span className="text-slate-500">
+                          · uid …{uidTail}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Balance: <strong>{bal}</strong>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Subscription:{" "}
+                        {p.subscriptionActive ? (
+                          <Pill>Active</Pill>
+                        ) : (
+                          <Pill>Inactive</Pill>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        Class:{" "}
+                        {p.classId
+                          ? (classMap.get(p.classId)?.code ||
+                             p.classId)
+                          : "—"}
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button className="px-3 py-1 rounded bg-blue-600 text-white text-xs" onClick={()=>onToggleSub(p.uid, true)}>Activate</button>
-                      <button className="px-3 py-1 rounded bg-blue-800 text-white text-xs" onClick={()=>onToggleSub(p.uid, false)}>Cancel</button>
-                      <button className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs" onClick={()=>onAdjust(p.uid, +5, 'Admin +$5')}>+ $5</button>
-                      <button className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs" onClick={()=>onAdjust(p.uid, -5, 'Admin -$5')}>− $5</button>
+                      <button
+                        className="px-3 py-1 rounded bg-blue-600 text-white text-xs"
+                        onClick={() =>
+                          onToggleSub(p.uid, true)
+                        }
+                      >
+                        Activate
+                      </button>
+                      <button
+                        className="px-3 py-1 rounded bg-blue-800 text-white text-xs"
+                        onClick={() =>
+                          onToggleSub(p.uid, false)
+                        }
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs"
+                        onClick={() =>
+                          onAdjust(p.uid, +5, "Admin +$5")
+                        }
+                      >
+                        + $5
+                      </button>
+                      <button
+                        className="px-3 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 text-xs"
+                        onClick={() =>
+                          onAdjust(p.uid, -5, "Admin -$5")
+                        }
+                      >
+                        − $5
+                      </button>
                     </div>
                   </li>
                 );
@@ -265,39 +448,116 @@
             </ul>
           </div>
 
+          {/* Classes */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">Classes</h3>
-            {roster.classes.length === 0 && <p className="text-sm text-slate-500">No classes yet. Students can join by entering a class code.</p>}
+            <h3 className="text-lg font-semibold text-blue-800 mb-2">
+              Classes
+            </h3>
+            {roster.classes.length === 0 && (
+              <p className="text-sm text-slate-500">
+                No classes yet. Students join by entering a
+                class code.
+              </p>
+            )}
             <ul className="space-y-3">
               {roster.classes.map(cls => {
-                const members = roster.enrollments.filter(e => e.classId === cls.id).map(e => e.uid);
+                const members = roster.enrollments
+                  .filter(e => e.classId === cls.id)
+                  .map(e => e.uid);
                 return (
-                  <li key={cls.id} className="p-3 rounded border border-blue-100 bg-white">
+                  <li
+                    key={cls.id}
+                    className="p-3 rounded border border-blue-100 bg-white"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="font-medium">Class {cls.code}{cls.title ? ` — ${cls.title}` : ''}</div>
-                        <div className="text-xs text-slate-500">Members: {members.length}</div>
+                        <div className="font-medium">
+                          Class {cls.code}
+                          {cls.title
+                            ? ` — ${cls.title}`
+                            : ""}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Members: {members.length}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input className="border border-blue-200 rounded px-2 py-1 text-sm w-44" placeholder="Rename (optional)"
-                          onKeyDown={e=>{ if(e.key==='Enter'){ onRenameClass(cls.id, e.currentTarget.value.trim()); e.currentTarget.value=''; } }} />
-                        <button className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs"
-                          onClick={()=>{
-                            const t = prompt('New title for Class '+cls.code, cls.title||'');
-                            if (t !== null) onRenameClass(cls.id, t.trim());
-                          }}>Rename</button>
+                        <input
+                          className="border border-blue-200 rounded px-2 py-1 text-sm w-40"
+                          placeholder="Rename"
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              onRenameClass(
+                                cls.id,
+                                e.currentTarget.value.trim()
+                              );
+                              e.currentTarget.value = "";
+                            }
+                          }}
+                        />
+                        <button
+                          className="px-3 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs"
+                          onClick={() => {
+                            const t = prompt(
+                              "New title",
+                              cls.title || ""
+                            );
+                            if (t !== null) {
+                              onRenameClass(
+                                cls.id,
+                                t.trim()
+                              );
+                            }
+                          }}
+                        >
+                          Rename
+                        </button>
                       </div>
                     </div>
                     <ul className="mt-2 divide-y divide-blue-100">
-                      {members.length === 0 && <li className="py-2 text-sm text-slate-500">No members yet.</li>}
+                      {members.length === 0 && (
+                        <li className="py-2 text-sm text-slate-500">
+                          No members yet.
+                        </li>
+                      )}
                       {members.map(uid => {
-                        const p = roster.profiles.find(pp => pp.uid === uid);
-                        const bal = p ? fmtUSD(computeBalance(p)) : '—';
-                        const alias = p?.alias ?? 'Unknown';
+                        const p =
+                          roster.profiles.find(
+                            pp => pp.uid === uid
+                          );
+                        const alias =
+                          p?.alias || "Unknown";
+                        const bal = p
+                          ? fmtUSD(
+                              computeBalance(p)
+                            )
+                          : "—";
                         return (
-                          <li key={uid} className="py-2 flex items-center justify-between">
-                            <span className="text-sm">{alias} <span className="text-slate-400">· uid …{String(uid).slice(-6)}</span> · Bal {bal}</span>
-                            <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white" onClick={()=>onRemoveFromClass(cls.id, uid)}>Remove</button>
+                          <li
+                            key={uid}
+                            className="py-2 flex items-center justify-between"
+                          >
+                            <span className="text-sm">
+                              {alias}{" "}
+                              <span className="text-slate-400">
+                                · uid …
+                                {String(uid).slice(
+                                  -6
+                                )}
+                              </span>{" "}
+                              · Bal {bal}
+                            </span>
+                            <button
+                              className="text-xs px-2 py-1 rounded bg-blue-800 text-white"
+                              onClick={() =>
+                                onRemoveFromClass(
+                                  cls.id,
+                                  uid
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
                           </li>
                         );
                       })}
@@ -314,153 +574,440 @@
     // =========================
     // User Panel
     // =========================
-    function UserPanel({ profile, onUpdate, onJoinClass, onApplyWeekly, onTx, onUndo }) {
-      const [delta, setDelta] = useState('');
-      const [memo, setMemo] = useState('');
-      const [wdName, setWdName] = useState('');
-      const [wdAmt, setWdAmt] = useState('');
-      const [goalName, setGoalName] = useState('');
-      const [goalTarget, setGoalTarget] = useState('');
-      const [cat, setCat] = useState('');
-      const [bAmt, setBAmt] = useState('');
-      const [classCode, setClassCode] = useState('');
+    function UserPanel({
+      profile,
+      onUpdate,
+      onJoinClass,
+      onApplyWeekly,
+      onTx,
+      onUndo
+    }) {
+      const [delta, setDelta] = useState("");
+      const [memo, setMemo] = useState("");
+      const [wdName, setWdName] = useState("");
+      const [wdAmt, setWdAmt] = useState("");
+      const [goalName, setGoalName] = useState("");
+      const [goalTarget, setGoalTarget] = useState("");
+      const [cat, setCat] = useState("");
+      const [bAmt, setBAmt] = useState("");
+      const [classCode, setClassCode] = useState("");
 
-      const balance = useMemo(()=> computeBalance(profile), [profile.transactions]);
+      const balance = useMemo(
+        () => computeBalance(profile),
+        [profile.transactions]
+      );
 
-      function addWeekly(){
-        const n = parseFloat(wdAmt); if(!wdName || Number.isNaN(n) || n<=0) return;
-        const upd = [...(profile.weeklyDeductions||[]), { name: wdName, amount: n }];
+      function addWeekly() {
+        const n = parseFloat(wdAmt);
+        if (!wdName || Number.isNaN(n) || n <= 0) return;
+        const upd = [
+          ...(profile.weeklyDeductions || []),
+          { name: wdName, amount: n }
+        ];
         onUpdate({ weeklyDeductions: upd });
         onTx(-n, `Weekly: ${wdName}`);
-        setWdName(''); setWdAmt('');
+        setWdName("");
+        setWdAmt("");
       }
-      function addGoal(){
-        const t = parseFloat(goalTarget); if(!goalName || Number.isNaN(t) || t<=0) return;
-        const goals = [...(profile.goals||[]), { name: goalName, target: t, saved: 0 }];
+
+      function addGoal() {
+        const t = parseFloat(goalTarget);
+        if (!goalName || Number.isNaN(t) || t <= 0) return;
+        const goals = [
+          ...(profile.goals || []),
+          { name: goalName, target: t, saved: 0 }
+        ];
         onUpdate({ goals });
-        setGoalName(''); setGoalTarget('');
+        setGoalName("");
+        setGoalTarget("");
       }
-      function contributeGoal(idx, amt){
-        const n = Number(amt); if(Number.isNaN(n) || n<=0) return;
-        const goals = [...(profile.goals||[])];
-        const g = {...goals[idx]};
-        const maxAdd = Math.min(n, Math.max(0, Number(g.target) - Number(g.saved)));
+
+      function contributeGoal(idx, amt) {
+        const n = Number(amt);
+        if (Number.isNaN(n) || n <= 0) return;
+
+        const goals = [...(profile.goals || [])];
+        const g = { ...goals[idx] };
+
+        const maxAdd = Math.min(
+          n,
+          Math.max(0, Number(g.target) - Number(g.saved))
+        );
         if (maxAdd <= 0) return;
-        g.saved = Number(g.saved) + maxAdd; goals[idx] = g;
+
+        g.saved = Number(g.saved) + maxAdd;
+        goals[idx] = g;
         onUpdate({ goals });
-        onTx(-n, 'Goal contribution');
+        onTx(-n, "Goal contribution");
       }
-      function upsertBudget(){
-        const n = parseFloat(bAmt); if(!cat || Number.isNaN(n) || n<=0) return;
-        const b = { ...(profile.budgets||{}), [cat]: n };
+
+      function upsertBudget() {
+        const n = parseFloat(bAmt);
+        if (!cat || Number.isNaN(n) || n <= 0) return;
+        const b = { ...(profile.budgets || {}), [cat]: n };
         onUpdate({ budgets: b });
-        setCat(''); setBAmt('');
+        setCat("");
+        setBAmt("");
       }
-      function deleteBudget(k){
-        const b = { ...(profile.budgets||{}) }; delete b[k];
+
+      function deleteBudget(k) {
+        const b = { ...(profile.budgets || {}) };
+        delete b[k];
         onUpdate({ budgets: b });
       }
-      async function handleJoin(){
+
+      async function handleJoin() {
         const code = String(classCode).trim();
-        if (!/^\d+$/.test(code)) { alert("Enter a numeric class code"); return; }
+        if (!/^\d+$/.test(code)) {
+          alert("Enter a numeric class code");
+          return;
+        }
         await onJoinClass(code);
-        setClassCode('');
+        setClassCode("");
       }
 
       return (
         <section className="md:col-span-2 bg-white p-5 rounded-2xl shadow-sm space-y-6 border border-blue-100">
+          {/* Header */}
           <div>
-            <h3 className="text-lg font-semibold text-blue-800">Welcome, {profile.alias}</h3>
-            <p className="text-sm text-slate-700">Balance: <strong>{fmtUSD(balance)}</strong></p>
-            <p className="text-xs text-slate-500">UID …{String(profile.uid).slice(-6)} · Class: {profile.classId ? profile.classId : '—'}</p>
+            <h3 className="text-lg font-semibold text-blue-800">
+              Welcome, {profile.alias}
+            </h3>
+            <p className="text-sm text-slate-700">
+              Balance: <strong>{fmtUSD(balance)}</strong>
+            </p>
+            <p className="text-xs text-slate-500">
+              UID …
+              {String(profile.uid).slice(-6)} · Class:{" "}
+              {profile.classId || "—"}
+            </p>
           </div>
 
+          {/* Join class */}
           <div className="p-3 rounded border border-blue-100 bg-white">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-sm">Join a class:</label>
-              <input className="border border-blue-200 p-2 rounded w-40" placeholder="Class code" value={classCode} onChange={e=>setClassCode(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={handleJoin}>Join</button>
-              <span className="text-xs text-slate-500">(No personal info needed.)</span>
+              <span className="text-sm">Join a class:</span>
+              <input
+                className="border border-blue-200 p-2 rounded w-36"
+                placeholder="Class code"
+                value={classCode}
+                onChange={e =>
+                  setClassCode(e.target.value)
+                }
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-2 rounded"
+                onClick={handleJoin}
+              >
+                Join
+              </button>
+              <span className="text-xs text-slate-500">
+                No real names or emails.
+              </span>
             </div>
           </div>
 
+          {/* Transactions */}
           <div className="space-y-2">
-            <h4 className="font-medium text-blue-800">Transactions</h4>
+            <h4 className="font-medium text-blue-800">
+              Transactions
+            </h4>
             <div className="flex flex-wrap gap-2 items-center">
-              <input type="number" step="0.01" placeholder="$ amount" className="border border-blue-200 p-2 rounded w-36" value={delta} onChange={e=>setDelta(e.target.value)} />
-              <input type="text" placeholder="Memo (optional)" className="border border-blue-200 p-2 rounded w-60" value={memo} onChange={e=>setMemo(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={()=>{const n=parseFloat(delta); if(!Number.isNaN(n)&&n>0){ onTx(n, memo || 'Deposit'); setDelta(''); setMemo('');}}}>Deposit</button>
-              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={()=>{const n=parseFloat(delta); if(!Number.isNaN(n)&&n>0){ onTx(-n, memo || 'Withdraw'); setDelta(''); setMemo('');}}}>Withdraw</button>
-              <button className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded" onClick={onUndo}>Undo last</button>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="$"
+                className="border border-blue-200 p-2 rounded w-28"
+                value={delta}
+                onChange={e =>
+                  setDelta(e.target.value)
+                }
+              />
+              <input
+                type="text"
+                placeholder="Memo (optional)"
+                className="border border-blue-200 p-2 rounded w-52"
+                value={memo}
+                onChange={e =>
+                  setMemo(e.target.value)
+                }
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-2 rounded"
+                onClick={() => {
+                  const n = parseFloat(delta);
+                  if (
+                    !Number.isNaN(n) &&
+                    n > 0
+                  ) {
+                    onTx(
+                      n,
+                      memo || "Deposit"
+                    );
+                    setDelta("");
+                    setMemo("");
+                  }
+                }}
+              >
+                Deposit
+              </button>
+              <button
+                className="bg-blue-800 text-white px-3 py-2 rounded"
+                onClick={() => {
+                  const n = parseFloat(delta);
+                  if (
+                    !Number.isNaN(n) &&
+                    n > 0
+                  ) {
+                    onTx(
+                      -n,
+                      memo || "Withdraw"
+                    );
+                    setDelta("");
+                    setMemo("");
+                  }
+                }}
+              >
+                Withdraw
+              </button>
+              <button
+                className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded"
+                onClick={onUndo}
+              >
+                Undo last
+              </button>
             </div>
-            <ul className="divide-y divide-blue-100 bg-white rounded border border-blue-100 max-h-[240px] overflow-auto">
-              {(profile.transactions||[]).slice().reverse().map((t,i)=> (
-                <li key={i} className="flex items-center justify-between p-2">
-                  <span className="text-sm">{new Date(t.ts||now()).toLocaleString()} — {t.memo || '—'}</span>
-                  <span className={"text-sm font-medium "+(t.amount>=0?'text-blue-800':'text-blue-700')}>{t.amount>=0?'+':''}{Number(t.amount).toFixed(2)}</span>
+            <ul className="divide-y divide-blue-100 bg-white rounded border border-blue-100 max-h-[220px] overflow-auto">
+              {(profile.transactions || [])
+                .slice()
+                .reverse()
+                .map((t, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between p-2"
+                  >
+                    <span className="text-xs">
+                      {new Date(
+                        t.ts || now()
+                      ).toLocaleString()}
+                      {" — "}
+                      {t.memo || "—"}
+                    </span>
+                    <span
+                      className={
+                        "text-xs font-medium " +
+                        (t.amount >= 0
+                          ? "text-blue-800"
+                          : "text-blue-700")
+                      }
+                    >
+                      {t.amount >= 0
+                        ? "+"
+                        : ""}
+                      {Number(
+                        t.amount
+                      ).toFixed(2)}
+                    </span>
+                  </li>
+                ))}
+              {(profile.transactions || [])
+                .length === 0 && (
+                <li className="p-2 text-sm text-slate-500">
+                  No transactions yet.
                 </li>
-              ))}
-              {(profile.transactions||[]).length === 0 && <li className="p-2 text-sm text-slate-500">No transactions yet.</li>}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-medium text-blue-800 mb-2">Weekly Deductions</h4>
-            <div className="flex flex-wrap gap-2 mb-3">
-              <input className="border border-blue-200 p-2 rounded" placeholder="Name (e.g., Phone)" value={wdName} onChange={e=>setWdName(e.target.value)} />
-              <input className="border border-blue-200 p-2 rounded w-32" type="number" step="0.01" placeholder="Amount" value={wdAmt} onChange={e=>setWdAmt(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={addWeekly}>Add & Apply</button>
-              <button className="bg-blue-800 text-white px-3 py-2 rounded" onClick={onApplyWeekly}>Run all weekly now</button>
-            </div>
-            <ul className="space-y-2">
-              {(profile.weeklyDeductions||[]).map((d,i)=> (
-                <li key={i} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded">
-                  <span>{d.name} — <strong>{fmtUSD(d.amount)}</strong></span>
-                  <span className="text-xs text-slate-400">fixed</span>
-                </li>
-              ))}
-              {(!profile.weeklyDeductions || profile.weeklyDeductions.length===0) && (
-                <li className="text-sm text-slate-500">No weekly deductions yet.</li>
               )}
             </ul>
           </div>
 
+          {/* Weekly deductions */}
           <div>
-            <h4 className="font-medium text-blue-800 mb-2">Goals</h4>
+            <h4 className="font-medium text-blue-800 mb-2">
+              Weekly Deductions
+            </h4>
             <div className="flex flex-wrap gap-2 mb-3">
-              <input className="border border-blue-200 p-2 rounded" placeholder="Goal name (e.g., Bike)" value={goalName} onChange={e=>setGoalName(e.target.value)} />
-              <input className="border border-blue-200 p-2 rounded w-32" type="number" step="0.01" placeholder="Target $" value={goalTarget} onChange={e=>setGoalTarget(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={addGoal}>Add Goal</button>
+              <input
+                className="border border-blue-200 p-2 rounded"
+                placeholder="Name (e.g., Phone)"
+                value={wdName}
+                onChange={e =>
+                  setWdName(e.target.value)
+                }
+              />
+              <input
+                className="border border-blue-200 p-2 rounded w-28"
+                type="number"
+                step="0.01"
+                placeholder="Amount"
+                value={wdAmt}
+                onChange={e =>
+                  setWdAmt(e.target.value)
+                }
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-2 rounded"
+                onClick={addWeekly}
+              >
+                Add & Apply
+              </button>
+              <button
+                className="bg-blue-800 text-white px-3 py-2 rounded"
+                onClick={onApplyWeekly}
+              >
+                Run all now
+              </button>
+            </div>
+            <ul className="space-y-2">
+              {(profile.weeklyDeductions || []).map(
+                (d, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded"
+                  >
+                    <span>
+                      {d.name} —{" "}
+                      <strong>
+                        {fmtUSD(
+                          d.amount
+                        )}
+                      </strong>
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      auto each week
+                    </span>
+                  </li>
+                )
+              )}
+              {(!profile.weeklyDeductions ||
+                profile
+                  .weeklyDeductions
+                  .length ===
+                  0) && (
+                <li className="text-sm text-slate-500">
+                  No weekly deductions yet.
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Goals */}
+          <div>
+            <h4 className="font-medium text-blue-800 mb-2">
+              Goals
+            </h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <input
+                className="border border-blue-200 p-2 rounded"
+                placeholder="Goal name (e.g., Bike)"
+                value={goalName}
+                onChange={e =>
+                  setGoalName(e.target.value)
+                }
+              />
+              <input
+                className="border border-blue-200 p-2 rounded w-28"
+                type="number"
+                step="0.01"
+                placeholder="Target $"
+                value={goalTarget}
+                onChange={e =>
+                  setGoalTarget(
+                    e.target.value
+                  )
+                }
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-2 rounded"
+                onClick={addGoal}
+              >
+                Add Goal
+              </button>
             </div>
             <div className="space-y-3">
-              {(profile.goals||[]).map((g, idx) => (
-                <GoalRow key={idx} g={g} onContribute={(amt)=>contributeGoal(idx, amt)} />
-              ))}
-              {(!profile.goals || profile.goals.length===0) && (
-                <div className="text-sm text-slate-500">No goals yet. Add your first goal above.</div>
+              {(profile.goals || []).map(
+                (g, idx) => (
+                  <GoalRow
+                    key={idx}
+                    g={g}
+                    onContribute={amt =>
+                      contributeGoal(
+                        idx,
+                        amt
+                      )
+                    }
+                  />
+                )
+              )}
+              {(!profile.goals ||
+                profile.goals
+                  .length === 0) && (
+                <div className="text-sm text-slate-500">
+                  No goals yet. Add one above.
+                </div>
               )}
             </div>
           </div>
 
+          {/* Budgets */}
           <div>
-            <h4 className="font-medium text-blue-800 mb-2">Budgets</h4>
+            <h4 className="font-medium text-blue-800 mb-2">
+              Budgets
+            </h4>
             <div className="flex flex-wrap gap-2 mb-3">
-              <input className="border border-blue-200 p-2 rounded" placeholder="Category (e.g., Food)" value={cat} onChange={e=>setCat(e.target.value)} />
-              <input className="border border-blue-200 p-2 rounded w-32" type="number" step="0.01" placeholder="Amount $" value={bAmt} onChange={e=>setBAmt(e.target.value)} />
-              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={upsertBudget}>Add/Update</button>
+              <input
+                className="border border-blue-200 p-2 rounded"
+                placeholder="Category (e.g., Food)"
+                value={cat}
+                onChange={e =>
+                  setCat(e.target.value)
+                }
+              />
+              <input
+                className="border border-blue-200 p-2 rounded w-28"
+                type="number"
+                step="0.01"
+                placeholder="Amount"
+                value={bAmt}
+                onChange={e =>
+                  setBAmt(e.target.value)
+                }
+              />
+              <button
+                className="bg-blue-600 text-white px-3 py-2 rounded"
+                onClick={upsertBudget}
+              >
+                Add / Update
+              </button>
             </div>
             <ul className="space-y-2">
-              {Object.entries(profile.budgets||{}).map(([k,v]) => (
-                <li key={k} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded">
-                  <span className="font-medium">{k}</span>
+              {Object.entries(
+                profile.budgets || {}
+              ).map(([k, v]) => (
+                <li
+                  key={k}
+                  className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded"
+                >
+                  <span className="font-medium">
+                    {k}
+                  </span>
                   <div className="flex items-center gap-3">
                     <span>{fmtUSD(v)}</span>
-                    <button className="text-xs px-2 py-1 rounded bg-blue-800 text-white" onClick={()=>deleteBudget(k)}>Delete</button>
+                    <button
+                      className="text-xs px-2 py-1 rounded bg-blue-800 text-white"
+                      onClick={() =>
+                        deleteBudget(k)
+                      }
+                    >
+                      Delete
+                    </button>
                   </div>
                 </li>
               ))}
-              {Object.keys(profile.budgets||{}).length===0 && (
-                <li className="text-sm text-slate-500">No budgets yet.</li>
+              {Object.keys(
+                profile.budgets || {}
+              ).length === 0 && (
+                <li className="text-sm text-slate-500">
+                  No budgets yet.
+                </li>
               )}
             </ul>
           </div>
@@ -469,41 +1016,192 @@
     }
 
     // =========================
+    // Recovery Components
+    // =========================
+    function RecoveryCard({ uid, alias, onToast }) {
+      const [key, setKey] = useState("");
+      const [msg, setMsg] = useState("");
+
+      async function generate() {
+        const words = [
+          "OWL",
+          "OTTER",
+          "HAWK",
+          "WOLF",
+          "PUMA",
+          "ELK",
+          "BISON",
+          "HERON",
+          "FALCON",
+          "ORCA"
+        ];
+        const w =
+          words[
+            Math.floor(
+              Math.random() *
+                words.length
+            )
+          ];
+        const code = `${w}-${Math.random()
+          .toString(36)
+          .slice(2, 5)
+          .toUpperCase()}${Math.floor(
+          10 + Math.random() * 90
+        )}`;
+        await setRecoveryKey(uid, code);
+        setKey(code);
+        setMsg(
+          "Write this down. Use it on another device to restore your bank."
+        );
+        onToast &&
+          onToast("Recovery key created");
+      }
+
+      return (
+        <div className="p-4 rounded-2xl border border-blue-100 bg-white space-y-2">
+          <div className="font-semibold text-blue-800">
+            Recovery Key
+          </div>
+          <p className="text-xs text-slate-600">
+            No email or name. This key is the only
+            way to move <strong>{alias}</strong>{" "}
+            to a new device.
+          </p>
+          <button
+            className="bg-blue-600 text-white px-3 py-2 rounded text-xs"
+            onClick={generate}
+          >
+            Generate Key
+          </button>
+          {key && (
+            <div className="mt-2 text-xs">
+              <div className="font-mono bg-blue-50 border border-blue-200 px-2 py-1 rounded inline-block">
+                {key}
+              </div>
+            </div>
+          )}
+          {msg && (
+            <p className="text-[10px] text-slate-500">
+              {msg}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    function RecoveryLinkCard({ onRecovered, onToast }) {
+      const [code, setCode] = useState("");
+      const [msg, setMsg] = useState("");
+
+      async function link() {
+        try {
+          const uid =
+            await resolveRecoveryKey(
+              code.trim()
+            );
+          onRecovered(uid);
+          setMsg("Recovered account.");
+          onToast &&
+            onToast(
+              "Recovery key accepted"
+            );
+        } catch (e) {
+          setMsg("Invalid recovery key.");
+        }
+      }
+
+      return (
+        <div className="p-4 rounded-2xl border border-blue-100 bg-white space-y-2">
+          <div className="font-semibold text-blue-800">
+            Use Recovery Key
+          </div>
+          <div className="flex gap-2">
+            <input
+              className="border border-blue-200 p-2 rounded w-40 text-xs"
+              placeholder="Enter key"
+              value={code}
+              onChange={e =>
+                setCode(e.target.value)
+              }
+            />
+            <button
+              className="bg-blue-800 text-white px-3 py-2 rounded text-xs"
+              onClick={link}
+            >
+              Link
+            </button>
+          </div>
+          {msg && (
+            <p className="text-[10px] text-slate-500">
+              {msg}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // =========================
     // Admin Gate
     // =========================
-    function AdminGate({ onOpen, onRoster }) {
-      const [code, setCode] = useState('');
-      const [msg, setMsg] = useState('');
-      const [loading, setLoading] = useState(false);
+    function AdminGate({ onOpen, onSetRoster }) {
+      const [code, setCode] = useState("");
+      const [msg, setMsg] = useState("");
+      const [loading, setLoading] =
+        useState(false);
 
-      async function open() {
+      async function tryOpen() {
         if (!code.trim()) return;
         setLoading(true);
         try {
-          // Ask server to set custom claim if code is correct
-          await callRequestAdmin(code.trim());
-          // Refresh token to pick up new claims
-          await auth.currentUser.getIdToken(true);
-          setMsg('Admin enabled.');
+          await callRequestAdmin(
+            code.trim()
+          );
+          await auth.currentUser.getIdToken(
+            true
+          );
+          const res =
+            await callAdminListRoster();
+          onSetRoster(res.data);
           onOpen();
-          const roster = await callAdminListRoster();
-          onRoster(roster.data);
+          setMsg("Admin enabled.");
         } catch (e) {
-          setMsg('Invalid or unauthorized admin code.');
+          setMsg(
+            "Invalid code or not allowed."
+          );
         } finally {
           setLoading(false);
         }
       }
 
       return (
-        <div className="p-4 rounded-2xl border border-blue-100 bg-white">
-          <div className="font-semibold text-blue-800 mb-1">Admin View</div>
-          <p className="text-sm text-slate-600 mb-2">Enter admin code (checked on server). No secrets in the browser.</p>
-          <div className="flex gap-2">
-            <input className="border border-blue-200 p-2 rounded w-64" placeholder="Admin code" value={code} onChange={e=>setCode(e.target.value)} />
-            <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={open} disabled={loading}>{loading ? 'Checking…' : 'Open'}</button>
+        <div className="p-3 rounded-2xl border border-blue-100 bg-white space-y-1">
+          <div className="font-semibold text-blue-800 text-xs">
+            Admin View
           </div>
-          {msg && <p className="text-xs text-slate-500 mt-2">{msg}</p>}
+          <div className="flex gap-2">
+            <input
+              className="border border-blue-200 p-1 rounded w-32 text-xs"
+              placeholder="Admin code"
+              value={code}
+              onChange={e =>
+                setCode(e.target.value)
+              }
+            />
+            <button
+              className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+              onClick={tryOpen}
+              disabled={loading}
+            >
+              {loading
+                ? "Checking..."
+                : "Open"}
+            </button>
+          </div>
+          {msg && (
+            <p className="text-[10px] text-slate-500">
+              {msg}
+            </p>
+          )}
         </div>
       );
     }
@@ -513,74 +1211,146 @@
     // =========================
     function App() {
       const [uid, setUid] = useState(null);
-      const [profile, setProfile] = useState(null);
-      const [toast, setToast] = useState(null);
+      const [profile, setProfile] =
+        useState(null);
+      const [toast, setToast] =
+        useState(null);
 
-      const [adminOpen, setAdminOpen] = useState(false);
-      const [roster, setRoster] = useState({ profiles: [], classes: [], enrollments: [] });
+      const [adminOpen, setAdminOpen] =
+        useState(false);
+      const [roster, setRoster] = useState({
+        profiles: [],
+        classes: [],
+        enrollments: []
+      });
 
+      // create / load anon profile
       useEffect(() => {
         (async () => {
-          const uid = await ensureAnonProfile();
-          setUid(uid);
-          const p = await getMyProfile(uid);
+          const id =
+            await ensureAnonProfile();
+          setUid(id);
+          const p =
+            await getMyProfile(id);
           setProfile(p);
         })();
       }, []);
 
+      // live profile updates
       useEffect(() => {
         if (!uid) return;
-        const unsub = db.collection("profiles").doc(uid).onSnapshot(snap => {
-          if (snap.exists) setProfile({ ...snap.data(), uid: snap.data().uid });
-        });
+        const unsub = db
+          .collection("profiles")
+          .doc(uid)
+          .onSnapshot(snap => {
+            if (snap.exists) {
+              setProfile(snap.data());
+            }
+          });
         return () => unsub && unsub();
       }, [uid]);
 
-      function notify(msg){ setToast(msg); }
+      function notify(msg) {
+        setToast(msg);
+      }
 
-      async function updateMine(patch) { await updateMyProfile(uid, patch); }
-      async function tx(delta, memo) { await addTransaction(uid, delta, memo); }
-      async function undo() { await removeLastTransaction(uid); }
-      async function applyWeeklyAll() { await applyWeeklyNow(uid); notify('Applied weekly deductions'); }
+      async function updateMine(patch) {
+        await updateMyProfile(uid, patch);
+      }
+      async function tx(delta, memo) {
+        await addTransaction(
+          uid,
+          delta,
+          memo
+        );
+      }
+      async function undo() {
+        await removeLastTransaction(uid);
+      }
+      async function applyWeeklyAll() {
+        await applyWeeklyNow(uid);
+        notify("Weekly applied");
+      }
       async function join(code) {
-        const res = await joinClass(uid, code);
-        notify(res.created ? `Created and joined class ${code}` : `Joined class ${code}`);
+        const classId =
+          await joinClass(
+            uid,
+            code
+          );
+        notify(
+          `Joined class ${code}`
+        );
+        return classId;
       }
-      async function onRecovered(recoveredUid) {
-        setUid(recoveredUid);
-        const p = await getMyProfile(recoveredUid);
+      async function recovered(newUid) {
+        setUid(newUid);
+        const p =
+          await getMyProfile(
+            newUid
+          );
         setProfile(p);
-        notify('Recovered profile loaded');
       }
 
-      // Admin actions via functions
-      async function adminRefreshRoster() {
-        const r = await callAdminListRoster();
-        setRoster(r.data);
+      // admin actions
+      async function refreshRoster() {
+        const res =
+          await callAdminListRoster();
+        setRoster(res.data);
       }
-      async function adminAdjust(uid, delta, memo) {
-        await callAdminAdjust(uid, delta, memo);
-        await adminRefreshRoster();
+      async function adminAdjust(
+        tUid,
+        d,
+        m
+      ) {
+        await callAdminAdjust(
+          tUid,
+          d,
+          m
+        );
+        await refreshRoster();
       }
-      async function adminToggleSub(uid, active) {
-        await callAdminToggleSub(uid, active);
-        await adminRefreshRoster();
+      async function adminToggleSub(
+        tUid,
+        active
+      ) {
+        await callAdminToggleSub(
+          tUid,
+          active
+        );
+        await refreshRoster();
       }
-      async function adminRenameClass(classId, title) {
-        await callAdminRenameClass(classId, title);
-        await adminRefreshRoster();
+      async function adminRenameClass(
+        classId,
+        title
+      ) {
+        await callAdminRenameClass(
+          classId,
+          title
+        );
+        await refreshRoster();
       }
-      async function adminRemoveFromClass(classId, targetUid) {
-        await callAdminRemoveFrom(classId, targetUid);
-        await adminRefreshRoster();
+      async function adminRemoveFromClass(
+        classId,
+        tUid
+      ) {
+        await callAdminRemoveFromClass(
+          classId,
+          tUid
+        );
+        await refreshRoster();
       }
 
       if (!profile) {
         return (
           <div className="min-h-screen flex items-center justify-center p-6 bg-white">
             <div className="bg-white max-w-md w-full rounded-2xl shadow p-6 border border-blue-100">
-              <h1 className="text-2xl font-bold text-blue-800 mb-2">Student Banking</h1>
-              <p className="text-sm text-slate-600">Creating a pseudonymous account…</p>
+              <h1 className="text-2xl font-bold text-blue-800 mb-2">
+                Student Banking
+              </h1>
+              <p className="text-sm text-slate-600">
+                Setting up your private
+                account...
+              </p>
             </div>
           </div>
         );
@@ -590,12 +1360,49 @@
         <div className="min-h-screen p-6 bg-white">
           <header className="max-w-5xl mx-auto mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-blue-800">Student Banking Dashboard</h1>
-              <div className="text-sm text-slate-600">Signed in as <strong>{profile.alias}</strong> · uid …{String(profile.uid).slice(-6)}</div>
+              <h1 className="text-2xl font-bold text-blue-800">
+                Student Banking Dashboard
+              </h1>
+              <div className="text-sm text-slate-600">
+                Signed in as{" "}
+                <strong>
+                  {profile.alias}
+                </strong>{" "}
+                · uid …
+                {String(
+                  profile.uid
+                ).slice(-6)}
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              {!adminOpen && <AdminGate onOpen={()=>setAdminOpen(true)} onRoster={setRoster} />}
-              {adminOpen && <Pill>Admin View ON</Pill>}
+              {!adminOpen && (
+                <AdminGate
+                  onOpen={() =>
+                    setAdminOpen(true)
+                  }
+                  onSetRoster={
+                    setRoster
+                  }
+                />
+              )}
+              {adminOpen && (
+                <>
+                  <Pill>
+                    Admin View
+                    On
+                  </Pill>
+                  <button
+                    className="text-xs px-2 py-1 rounded bg-blue-50 border border-blue-200 text-blue-700"
+                    onClick={() => {
+                      setAdminOpen(
+                        false
+                      );
+                    }}
+                  >
+                    Exit
+                  </button>
+                </>
+              )}
             </div>
           </header>
 
@@ -605,13 +1412,34 @@
                 <AdminPanel
                   roster={roster}
                   onAdjust={adminAdjust}
-                  onToggleSub={adminToggleSub}
-                  onRenameClass={adminRenameClass}
-                  onRemoveFromClass={adminRemoveFromClass}
+                  onToggleSub={
+                    adminToggleSub
+                  }
+                  onRenameClass={
+                    adminRenameClass
+                  }
+                  onRemoveFromClass={
+                    adminRemoveFromClass
+                  }
                 />
                 <aside className="bg-white p-5 rounded-2xl shadow-sm space-y-4 border border-blue-100">
-                  <h3 className="text-lg font-semibold text-blue-800">Admin Tools</h3>
-                  <button className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded" onClick={adminRefreshRoster}>Refresh Roster</button>
+                  <h3 className="text-lg font-semibold text-blue-800">
+                    Admin Tools
+                  </h3>
+                  <button
+                    className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-2 rounded text-sm"
+                    onClick={
+                      refreshRoster
+                    }
+                  >
+                    Refresh Roster
+                  </button>
+                  <p className="text-xs text-slate-500">
+                    Admin actions run on the
+                    server. No student names,
+                    DOBs, or emails are ever
+                    stored.
+                  </p>
                 </aside>
               </>
             ) : (
@@ -620,32 +1448,58 @@
                   profile={profile}
                   onUpdate={updateMine}
                   onJoinClass={join}
-                  onApplyWeekly={applyWeeklyAll}
+                  onApplyWeekly={
+                    applyWeeklyAll
+                  }
                   onTx={tx}
                   onUndo={undo}
                 />
                 <aside className="bg-white p-5 rounded-2xl shadow-sm space-y-4 border border-blue-100">
-                  <h3 className="text-lg font-semibold text-blue-800">Account Tools</h3>
+                  <h3 className="text-lg font-semibold text-blue-800">
+                    Account Tools
+                  </h3>
+                  <RecoveryCard
+                    uid={uid}
+                    alias={profile.alias}
+                    onToast={notify}
+                  />
+                  <RecoveryLinkCard
+                    onRecovered={
+                      recovered
+                    }
+                    onToast={notify}
+                  />
                   <div className="p-4 rounded-2xl border border-blue-100 bg-white">
-                    <div className="font-semibold text-blue-800 mb-1">Recovery Key</div>
-                    <RecoveryCard uid={profile.uid} currentAlias={profile.alias} />
-                    <RecoveryLinkCard onLinked={onRecovered} />
-                  </div>
-                  <div className="p-4 rounded-2xl border border-blue-100 bg-white">
-                    <div className="font-semibold text-blue-800 mb-1">Privacy</div>
-                    <p className="text-sm text-slate-600">No names, DOB, or emails are stored. Your identity is a random alias and UID.</p>
+                    <div className="font-semibold text-blue-800 mb-1">
+                      Privacy
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Students use random
+                      aliases only. No real
+                      names, emails, or dates
+                      of birth are stored.
+                    </p>
                   </div>
                 </aside>
               </>
             )}
           </main>
 
-          {toast && <Toast text={toast} onClose={()=>setToast(null)} />}
+          {toast && (
+            <Toast
+              text={toast}
+              onClose={() =>
+                setToast(null)
+              }
+            />
+          )}
         </div>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
+    const root = ReactDOM.createRoot(
+      document.getElementById("root")
+    );
     root.render(<App />);
   </script>
 </body>
