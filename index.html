@@ -6,7 +6,20 @@
   <title>Student Banking</title>
 
   <!-- Tailwind -->
-  <script>window.tailwind = { config: { darkMode: false } };</script>
+  <script>
+    window.tailwind = {
+      config: {
+        darkMode: false,
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['system-ui', 'SF Pro Text', 'system-ui', 'sans-serif'],
+            }
+          }
+        }
+      }
+    };
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- React 18 + Babel -->
@@ -22,33 +35,92 @@
   <style>
     html, body, #root { height: 100%; }
 
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, -webkit-system-font, sans-serif;
+      background: #f3f4f6;
+      color: #020817;
+    }
+
+    /* DARK MODE OVERRIDES – make everything deep + consistent */
     body.sb-dark {
-      background: #020817;
-      color: #e5e7eb;
-    }
-    body.sb-dark .panel {
-      background: #0f172a !important;
-      border-color: #1f2937 !important;
+      background-color: #020817 !important;
       color: #e5e7eb !important;
     }
+
+    /* Generic surface panels */
+    body.sb-dark .panel,
     body.sb-dark .balance-panel {
-      background: #111827 !important;
+      background-color: #020817 !important;
+      border-color: #111827 !important;
+      color: #e5e7eb !important;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.6) !important;
+    }
+
+    /* Kill light backgrounds from Tailwind utility classes */
+    body.sb-dark .bg-white,
+    body.sb-dark .bg-slate-50,
+    body.sb-dark .bg-slate-100,
+    body.sb-dark .bg-slate-200,
+    body.sb-dark .bg-blue-50,
+    body.sb-dark .bg-blue-100 {
+      background-color: #020817 !important;
+    }
+
+    /* Borders */
+    body.sb-dark .border-blue-50,
+    body.sb-dark .border-blue-100,
+    body.sb-dark .border-slate-100,
+    body.sb-dark .border-slate-200 {
+      border-color: #111827 !important;
+    }
+
+    /* Text colors */
+    body.sb-dark .text-slate-500,
+    body.sb-dark .text-slate-600,
+    body.sb-dark .text-slate-700 {
+      color: #9ca3af !important;
+    }
+    body.sb-dark .text-blue-900,
+    body.sb-dark .text-blue-800 {
       color: #e5e7eb !important;
     }
-    body.sb-dark .settings-overlay {
-      background: rgba(0,0,0,0.7);
-    }
+
+    /* Inputs / selects / textareas */
     body.sb-dark input,
     body.sb-dark select,
     body.sb-dark textarea {
-      background-color: #020817;
-      color: #e5e7eb;
-      border-color: #374151;
+      background-color: #020817 !important;
+      color: #e5e7eb !important;
+      border-color: #1f2937 !important;
+    }
+    body.sb-dark input::placeholder,
+    body.sb-dark textarea::placeholder {
+      color: #6b7280 !important;
+    }
+
+    /* Buttons basic */
+    body.sb-dark .btn-soft {
+      background-color: #020817 !important;
+      border-color: #111827 !important;
+      color: #e5e7eb !important;
+    }
+
+    /* Settings overlay */
+    body.sb-dark .settings-overlay {
+      background: rgba(0,0,0,0.85) !important;
+    }
+
+    /* Tags / pills */
+    body.sb-dark .pill,
+    body.sb-dark .tag {
+      background-color: #020817 !important;
+      color: #60a5fa !important;
+      border-color: #1f2937 !important;
     }
   </style>
 </head>
 
-<body class="h-full bg-slate-50 text-slate-900">
+<body class="h-full">
   <div id="root" class="h-full"></div>
 
   <script type="text/babel">
@@ -92,7 +164,7 @@
         return () => clearTimeout(t);
       }, [onClose]);
       return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-sm px-4 py-2 rounded-2xl shadow-2xl z-50">
           {text}
         </div>
       );
@@ -128,7 +200,7 @@
 
       const [pinVerified, setPinVerified] = useState(false);
 
-      // Apply dark mode class
+      // Apply dark mode
       useEffect(() => {
         if (dark) {
           document.body.classList.add("sb-dark");
@@ -144,7 +216,7 @@
         localStorage.setItem("sb_no_negative", noNegative ? "true" : "false");
       }, [noNegative]);
 
-      // sign in anonymously + ensure profile
+      // Sign in anonymously & load profile
       useEffect(() => {
         (async () => {
           try {
@@ -154,7 +226,6 @@
 
             const ref = db.collection("profiles").doc(user.uid);
             const snap = await ref.get();
-
             if (!snap.exists) {
               await ref.set({
                 uid: user.uid,
@@ -215,7 +286,9 @@
         if (!uid) return;
         const clean = String(newPin || "").trim();
         if (!clean) {
-          await db.collection("profiles").doc(uid).update({ pin: firebase.firestore.FieldValue.delete() });
+          await db.collection("profiles").doc(uid).update({
+            pin: firebase.firestore.FieldValue.delete()
+          });
           setPinVerified(false);
           notify("PIN removed.");
           return;
@@ -261,9 +334,7 @@
         if (!confirm("Remove this student account?")) return;
         await db.collection("profiles").doc(uidTarget).delete();
         notify("Student removed.");
-        if (selectedUserId === uidTarget) {
-          setSelectedUserId(null);
-        }
+        if (selectedUserId === uidTarget) setSelectedUserId(null);
       }
 
       const myBalance = useMemo(
@@ -290,75 +361,59 @@
         return (
           <PinLockScreen
             onUnlock={pin => {
-              if (pin === String(profile.pin)) {
-                setPinVerified(true);
-              } else {
-                alert("Incorrect PIN.");
-              }
+              if (pin === String(profile.pin)) setPinVerified(true);
+              else alert("Incorrect PIN.");
             }}
             onClearPin={async () => {
               await db.collection("profiles").doc(uid).update({
                 pin: firebase.firestore.FieldValue.delete()
               });
               setPinVerified(true);
-              notify("PIN cleared for this account.");
+              notify("PIN cleared.");
             }}
           />
         );
       }
 
-      // ---------- UI states ----------
+      // ---------- Basic states ----------
       if (loading) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="panel bg-white border border-blue-100 rounded-2xl p-8 shadow">
-              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
-              <p className="text-sm text-slate-600">Creating your account…</p>
-            </div>
-          </div>
+          <CenterCard title="Student Banking" text="Creating your secure account..." />
         );
       }
 
       if (initError) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="panel bg-white border border-red-200 rounded-2xl p-8 shadow">
-              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
-              <p className="text-sm text-red-600">Error: {initError}</p>
-            </div>
-          </div>
+          <CenterCard title="Student Banking" error={initError} />
         );
       }
 
       if (!profile) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="panel bg-white border border-blue-100 rounded-2xl p-8 shadow">
-              <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
-              <p className="text-sm text-slate-600">Loading…</p>
-            </div>
-          </div>
+          <CenterCard title="Student Banking" text="Loading your account..." />
         );
       }
 
       // ---------- Admin View ----------
       if (isAdmin) {
         return (
-          <div className="min-h-screen bg-slate-50 px-6 py-4">
+          <div className="min-h-screen px-6 py-4 bg-slate-950/5">
             <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-blue-900">Student Banking — Admin</h1>
-                <p className="text-sm text-slate-600">
-                  View classes, adjust balances, and manage student accounts.
-                </p>
+                <h1 className="text-3xl font-semibold tracking-tight text-blue-900">
+                  Student Banking <span className="text-slate-500">Admin</span>
+                </h1>
                 <p className="text-xs text-slate-500 mt-1">
+                  Monitor classes, adjust balances, and review activity.
+                </p>
+                <p className="text-[10px] text-slate-500 mt-1">
                   Total students: <strong>{totalStudents}</strong> · Total balance:{" "}
                   <strong>{fmtUSD(totalBalance)}</strong>
                 </p>
               </div>
               <div className="flex gap-2 items-center">
                 <button
-                  className="px-3 py-1.5 text-xs rounded bg-slate-200 text-slate-700"
+                  className="px-3 py-1.5 text-xs rounded-full bg-slate-200 text-slate-800 hover:bg-slate-300 transition"
                   onClick={() => {
                     setIsAdmin(false);
                     setRoster([]);
@@ -366,10 +421,10 @@
                     setAdminCodeInput("");
                   }}
                 >
-                  Exit Admin View
+                  Exit Admin
                 </button>
                 <button
-                  className="px-3 py-1.5 text-xs rounded bg-slate-900 text-white"
+                  className="px-3 py-1.5 text-xs rounded-full bg-slate-900 text-white hover:bg-black transition"
                   onClick={() => setDark(d => !d)}
                 >
                   {dark ? "Light Mode" : "Dark Mode"}
@@ -378,9 +433,10 @@
             </header>
 
             <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 h-[80vh]">
-              {/* Classes & Students */}
-              <section className="panel lg:col-span-2 bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
-                <h2 className="text-lg font-semibold text-blue-900 mb-3">Classes & Students</h2>
+              <section className="panel lg:col-span-2 rounded-3xl p-4 border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.12)] overflow-y-auto">
+                <h2 className="text-sm font-semibold text-slate-800 mb-3 tracking-wide">
+                  Classes & Students
+                </h2>
                 <AdminClassList
                   roster={roster}
                   selectedUserId={selectedUserId}
@@ -390,9 +446,10 @@
                 />
               </section>
 
-              {/* Transaction info for selected student */}
-              <section className="panel bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
-                <h2 className="text-lg font-semibold text-blue-900 mb-3">Transaction Information</h2>
+              <section className="panel rounded-3xl p-4 border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.12)] overflow-y-auto">
+                <h2 className="text-sm font-semibold text-slate-800 mb-3 tracking-wide">
+                  Transaction Information
+                </h2>
                 <AdminTransactionPanel user={selectedUser} />
               </section>
             </main>
@@ -404,16 +461,18 @@
 
       // ---------- Student View ----------
       return (
-        <div className="min-h-screen bg-slate-50 px-6 py-4 flex flex-col">
+        <div className="min-h-screen px-6 py-4 bg-slate-50/80">
           <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-blue-900">Student Banking</h1>
-              <p className="text-sm text-slate-600">
-                Track your classroom bank balance and transactions.
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+                Student Banking
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                A clean place to track your classroom money.
               </p>
             </div>
             <button
-              className="px-3 py-1.5 rounded-full border border-blue-200 text-xs text-blue-900 bg-white hover:bg-blue-50"
+              className="px-3 py-1.5 rounded-full border border-slate-200 text-[11px] text-slate-800 bg-white hover:bg-slate-50 shadow-sm transition"
               onClick={() => setShowSettings(true)}
             >
               Settings ⚙️
@@ -421,17 +480,26 @@
           </header>
 
           <main className="max-w-6xl mx-auto flex-1 flex flex-col gap-4">
-            {/* Big Balance Panel */}
-            <div className="balance-panel rounded-2xl p-6 text-center shadow bg-blue-900 text-white">
-              <h2 className="text-lg font-semibold">Current Balance</h2>
-              <p className="text-5xl font-bold mt-1">{fmtUSD(myBalance)}</p>
+            {/* Balance Panel */}
+            <div className="balance-panel relative rounded-3xl p-6 text-center shadow-[0_22px_55px_rgba(37,99,235,0.18)] bg-gradient-to-r from-blue-600 via-blue-700 to-slate-900 text-white overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-40 h-40 rounded-full bg-white/5 blur-3xl pointer-events-none" />
+              <div className="absolute -left-10 bottom-0 w-32 h-32 rounded-full bg-blue-300/10 blur-3xl pointer-events-none" />
+              <h2 className="text-xs uppercase tracking-[0.16em] text-blue-100/80">
+                Available Balance
+              </h2>
+              <p className="mt-1 text-5xl font-semibold tabular-nums tracking-tight">
+                {fmtUSD(myBalance)}
+              </p>
+              <p className="mt-1 text-[10px] text-blue-100/80">
+                Updated instantly with every classroom transaction.
+              </p>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-4 flex-1">
-              {/* Left: controls + list */}
-              <section className="panel flex-1 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col gap-3">
+              {/* Left Column */}
+              <section className="panel flex-1 rounded-3xl p-4 border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)] flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Class code:</span>
+                  <span className="text-[10px] text-slate-500">Class code</span>
                   <ClassCodeEditor current={profile.classCode} onSave={setMyClassCode} />
                 </div>
                 <StudentTransactionForm
@@ -444,13 +512,13 @@
                 <StudentTransactionList transactions={profile.transactions || []} />
               </section>
 
-              {/* Right: transaction info */}
-              <section className="panel w-full lg:w-1/3 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col">
-                <h2 className="text-lg font-semibold text-blue-900 mb-1">
-                  Transaction Information
+              {/* Right Column */}
+              <section className="panel w-full lg:w-1/3 rounded-3xl p-4 border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)] flex flex-col">
+                <h2 className="text-sm font-semibold text-slate-800 mb-1 tracking-wide">
+                  Mini Statement
                 </h2>
-                <p className="text-xs text-slate-600 mb-2">
-                  Mini statement: totals and recent activity.
+                <p className="text-[10px] text-slate-500 mb-2">
+                  Totals plus your latest activity, like a simple bank statement.
                 </p>
                 <StudentTransactionInfo transactions={profile.transactions || []} />
               </section>
@@ -479,7 +547,28 @@
       );
     }
 
-    // ---------- PIN LOCK SCREEN ----------
+    // ---------- SMALL PIECES ----------
+
+    function CenterCard({ title, text, error }) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="panel bg-white/95 border border-slate-200 rounded-3xl p-8 shadow-[0_18px_45px_rgba(15,23,42,0.18)] max-w-sm w-full text-center">
+            <h1 className="text-2xl font-semibold text-slate-900 mb-2 tracking-tight">
+              {title}
+            </h1>
+            {text && !error && (
+              <p className="text-xs text-slate-500">{text}</p>
+            )}
+            {error && (
+              <p className="text-xs text-red-500">
+                {error}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     function PinLockScreen({ onUnlock, onClearPin }) {
       const [pin, setPin] = useState("");
 
@@ -489,31 +578,33 @@
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="panel bg-white border border-blue-100 rounded-2xl p-6 shadow max-w-xs w-full text-center">
-            <h1 className="text-xl font-bold text-blue-900 mb-2">Enter PIN</h1>
-            <p className="text-xs text-slate-600 mb-3">
-              This account is locked. Enter your 2–4 digit PIN to continue.
+        <div className="min-h-screen flex items-center justify-center bg-slate-950">
+          <div className="panel bg-slate-950 border border-slate-800 rounded-3xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.6)] max-w-xs w-full text-center">
+            <h1 className="text-xl font-semibold text-slate-50 mb-2 tracking-tight">
+              Enter PIN
+            </h1>
+            <p className="text-[10px] text-slate-400 mb-4">
+              This account is locked. Use your 2–4 digit PIN to continue.
             </p>
             <input
               type="password"
               maxLength={4}
-              className="border border-blue-200 rounded px-3 py-2 text-center text-lg tracking-widest w-full mb-3"
+              className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-center text-lg tracking-[0.4em] text-slate-50 mb-3 outline-none focus:ring-2 focus:ring-blue-500/60"
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
               onKeyDown={e => e.key === "Enter" && submit()}
             />
             <button
-              className="w-full bg-blue-900 text-white py-2 rounded text-sm mb-2"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-2xl text-xs font-medium transition mb-2"
               onClick={submit}
             >
               Unlock
             </button>
             <button
-              className="w-full bg-slate-100 text-slate-600 py-1.5 rounded text-[10px]"
+              className="w-full bg-slate-900 border border-slate-600 text-slate-400 py-1.5 rounded-2xl text-[9px] hover:bg-slate-800 transition"
               onClick={onClearPin}
             >
-              I forgot my PIN (clear it on this account)
+              Forgot PIN? Clear it for this account
             </button>
           </div>
         </div>
@@ -535,7 +626,6 @@
       hasPin
     }) {
       const [pinInput, setPinInput] = useState("");
-      const [pinMode, setPinMode] = useState(hasPin ? "change" : "set");
 
       function savePin() {
         const v = pinInput.trim();
@@ -559,18 +649,20 @@
 
       return (
         <div className="fixed inset-0 settings-overlay bg-black/40 flex justify-end z-40">
-          <div className="panel h-full w-80 bg-white border-l border-blue-100 shadow-xl p-4 flex flex-col">
+          <div className="panel h-full w-80 bg-white/98 border-l border-slate-200 shadow-[0_18px_45px_rgba(15,23,42,0.32)] p-4 flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-blue-900">Settings</h2>
+              <h2 className="text-sm font-semibold text-slate-900 tracking-wide">
+                Settings
+              </h2>
               <button
-                className="text-xs text-slate-500 hover:text-slate-800"
+                className="text-xs text-slate-500 hover:text-slate-900 transition"
                 onClick={onClose}
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs flex-1 overflow-y-auto">
+            <div className="space-y-4 text-xs flex-1 overflow-y-auto pr-1">
               {/* ID */}
               <div>
                 <h3 className="font-semibold text-slate-800 mb-1">Your ID</h3>
@@ -580,8 +672,8 @@
                     …{shortId || "----"}
                   </span>
                 </p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Share this with your teacher if they need to find your account.
+                <p className="text-[9px] text-slate-500 mt-1">
+                  Share this with your teacher if they need to look up your account.
                 </p>
               </div>
 
@@ -589,17 +681,17 @@
               <div>
                 <h3 className="font-semibold text-slate-800 mb-1">Appearance</h3>
                 <button
-                  className="px-3 py-1.5 rounded-full border border-blue-200 text-[11px] bg-white hover:bg-blue-50"
+                  className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] bg-white hover:bg-slate-50 shadow-sm transition"
                   onClick={() => setDark(d => !d)}
                 >
-                  {dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                  {dark ? "☀️  Switch to Light Mode" : "🌙  Switch to Dark Mode"}
                 </button>
               </div>
 
               {/* Negative balance lock */}
               <div>
                 <h3 className="font-semibold text-slate-800 mb-1">Balance Rules</h3>
-                <label className="inline-flex items-center gap-2 text-[11px]">
+                <label className="inline-flex items-center gap-2 text-[10px]">
                   <input
                     type="checkbox"
                     checked={noNegative}
@@ -608,73 +700,58 @@
                   <span>Block going below $0 on this device</span>
                 </label>
                 <p className="text-[9px] text-slate-500 mt-1">
-                  If on, withdrawals that would make your balance negative are not allowed.
+                  If on, withdrawals that drop below $0 are stopped.
                 </p>
               </div>
 
               {/* PIN */}
               <div>
                 <h3 className="font-semibold text-slate-800 mb-1">PIN Lock (Optional)</h3>
-                <p className="text-[10px] text-slate-500 mb-1">
-                  Set a 2–4 digit PIN to lock this account on this device. Not a password, just a simple lock.
+                <p className="text-[9px] text-slate-500 mb-1">
+                  Add a simple 2–4 digit PIN so only you can open this account on this device.
                 </p>
-                <div className="flex gap-1 mb-1">
-                  <button
-                    className={
-                      "px-2 py-1 rounded text-[10px] " +
-                      (pinMode === "set"
-                        ? "bg-blue-900 text-white"
-                        : "bg-slate-100 text-slate-700")
+                <div className="flex gap-2 items-center mb-1">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-20 text-center"
+                    placeholder={hasPin ? "New PIN" : "1234"}
+                    value={pinInput}
+                    onChange={e =>
+                      setPinInput(e.target.value.replace(/\D/g, ""))
                     }
-                    onClick={() => setPinMode("set")}
+                  />
+                  <button
+                    className="px-2 py-1 rounded-lg text-[10px] bg-blue-600 text-white hover:bg-blue-500 transition"
+                    onClick={savePin}
                   >
-                    {hasPin ? "Change PIN" : "Set PIN"}
+                    Save
                   </button>
                   {hasPin && (
                     <button
-                      className="px-2 py-1 rounded text-[10px] bg-slate-100 text-slate-700"
+                      className="px-2 py-1 rounded-lg text-[10px] bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
                       onClick={clearPin}
                     >
-                      Remove PIN
+                      Remove
                     </button>
                   )}
                 </div>
-                {pinMode === "set" && (
-                  <div className="flex gap-2 items-center mt-1">
-                    <input
-                      type="password"
-                      maxLength={4}
-                      className="border border-blue-200 rounded px-2 py-1 text-[11px] w-20 text-center"
-                      placeholder="1234"
-                      value={pinInput}
-                      onChange={e =>
-                        setPinInput(e.target.value.replace(/\D/g, ""))
-                      }
-                    />
-                    <button
-                      className="px-2 py-1 rounded text-[10px] bg-blue-900 text-white"
-                      onClick={savePin}
-                    >
-                      Save
-                    </button>
-                  </div>
-                )}
               </div>
 
               {/* Teacher / Admin */}
               <div>
                 <h3 className="font-semibold text-slate-800 mb-1">Teacher Access</h3>
-                <p className="text-[10px] text-slate-500 mb-1">
-                  Teachers only: enter the admin code to open Admin View on this device.
+                <p className="text-[9px] text-slate-500 mb-1">
+                  Teachers: enter your admin code to open the Admin View on this device.
                 </p>
                 <input
-                  className="border border-blue-200 rounded px-2 py-1 text-[11px] w-full mb-2"
+                  className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-full mb-2"
                   placeholder="Teacher admin code"
                   value={adminCode}
                   onChange={e => setAdminCode(e.target.value)}
                 />
                 <button
-                  className="w-full bg-blue-900 text-white px-3 py-1.5 rounded text-[11px]"
+                  className="w-full bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] hover:bg-black transition"
                   onClick={onEnterAdmin}
                 >
                   Enter Admin View
@@ -682,8 +759,8 @@
               </div>
             </div>
 
-            <p className="text-[9px] text-slate-400 mt-2">
-              No names or emails are stored. Accounts use device sign-in, class codes, and IDs only.
+            <p className="text-[8px] text-slate-400 mt-2">
+              No names or emails are stored. Accounts are anonymous and classroom-safe.
             </p>
           </div>
         </div>
@@ -693,23 +770,22 @@
     // ---------- STUDENT COMPONENTS ----------
     function ClassCodeEditor({ current, onSave }) {
       const [value, setValue] = useState(current || "");
-
       return (
         <div className="flex items-center gap-2">
           <input
-            className="border border-blue-200 rounded px-2 py-1 text-xs w-24"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-[10px] w-24"
             value={value}
             placeholder="e.g. 2A"
             onChange={e => setValue(e.target.value)}
             onBlur={() => { if (value.trim()) onSave(value.trim()); }}
           />
           <button
-            className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+            className="px-2 py-1 rounded-full bg-blue-600 text-white text-[9px] hover:bg-blue-500 transition"
             onClick={() => { if (value.trim()) onSave(value.trim()); }}
           >
             Save
           </button>
-          <span className="text-[10px] text-slate-500">
+          <span className="text-[9px] text-slate-500">
             Current: {current || "none"}
           </span>
         </div>
@@ -727,7 +803,7 @@
         const value = sign * n;
 
         if (sign < 0 && noNegative && balance + value < 0) {
-          notify("This would put your balance below $0. Not allowed.");
+          notify("This would put your balance below $0.");
           return;
         }
 
@@ -742,20 +818,20 @@
           <input
             type="number"
             step="0.01"
-            className="border border-blue-200 rounded px-2 py-1 text-sm w-24"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-24"
             placeholder="$"
             value={amount}
             onChange={e => setAmount(e.target.value)}
           />
           <input
             type="text"
-            className="border border-blue-200 rounded px-2 py-1 text-sm flex-1 min-w-[120px]"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] flex-1 min-w-[120px]"
             placeholder="Note (optional)"
             value={memo}
             onChange={e => setMemo(e.target.value)}
           />
           <select
-            className="border border-blue-200 rounded px-2 py-1 text-xs"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-[10px]"
             value={type}
             onChange={e => setType(e.target.value)}
           >
@@ -766,19 +842,19 @@
             <option>Other</option>
           </select>
           <button
-            className="bg-green-600 text-white px-3 py-1.5 rounded text-sm"
+            className="px-3 py-1.5 rounded-full bg-emerald-500 text-white text-[10px] hover:bg-emerald-400 transition"
             onClick={() => handle(+1)}
           >
             Deposit
           </button>
           <button
-            className="bg-red-700 text-white px-3 py-1.5 rounded text-sm"
+            className="px-3 py-1.5 rounded-full bg-rose-500 text-white text-[10px] hover:bg-rose-400 transition"
             onClick={() => handle(-1)}
           >
             Withdraw
           </button>
           <button
-            className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-xs border border-slate-200"
+            className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-[9px] border border-slate-200 hover:bg-slate-200 transition"
             onClick={onUndo}
           >
             Undo last
@@ -789,26 +865,24 @@
 
     function StudentTransactionList({ transactions }) {
       const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
-
       if (!rows.length) {
         return (
-          <div className="mt-2 text-xs text-slate-500">
+          <div className="mt-2 text-[10px] text-slate-500">
             No transactions yet. Add a deposit or withdrawal to get started.
           </div>
         );
       }
-
       return (
-        <div className="mt-2 flex-1 overflow-y-auto border border-blue-100 rounded-xl bg-white">
-          <ul className="divide-y divide-blue-50 text-xs">
+        <div className="mt-2 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80">
+          <ul className="divide-y divide-slate-100 text-[10px]">
             {rows.map((t, i) => (
               <li key={i} className="px-3 py-2 flex items-center justify-between gap-2">
                 <div className="flex flex-col">
-                  <span>
+                  <span className="text-slate-700">
                     {new Date(t.ts || Date.now()).toLocaleString()} — {t.memo || "—"}
                   </span>
                   {t.type && (
-                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[9px] border border-blue-100">
+                    <span className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[8px] border border-blue-100 tag">
                       {t.type}
                     </span>
                   )}
@@ -816,8 +890,8 @@
                 <span
                   className={
                     t.amount >= 0
-                      ? "text-green-700 font-semibold"
-                      : "text-red-700 font-semibold"
+                      ? "text-emerald-600 font-semibold"
+                      : "text-rose-600 font-semibold"
                   }
                 >
                   {t.amount >= 0 ? "+" : ""}
@@ -834,30 +908,22 @@
       const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
       if (!rows.length) {
         return (
-          <div className="text-xs text-slate-500">
-            When you make transactions, your mini statement will show here.
+          <div className="text-[10px] text-slate-500">
+            Your statement will appear after your first transaction.
           </div>
         );
       }
-
-      const totalIn = rows
-        .filter(t => Number(t.amount) > 0)
-        .reduce((s, t) => s + Number(t.amount), 0);
-      const totalOut = rows
-        .filter(t => Number(t.amount) < 0)
-        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const totalIn = rows.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const totalOut = rows.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
       return (
-        <div className="text-[10px] flex flex-col gap-2 h-full">
-          <div className="mb-1">
-            <div>Totals (all time):</div>
-            <div className="flex gap-4 mt-0.5">
-              <span className="text-green-700 font-semibold">
-                In: {fmtUSD(totalIn)}
-              </span>
-              <span className="text-red-700 font-semibold">
-                Out: {fmtUSD(totalOut)}
-              </span>
+        <div className="text-[9px] flex flex-col gap-2 h-full">
+          <div className="flex gap-4 mb-1">
+            <div className="px-2 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 pill">
+              In: {fmtUSD(totalIn)}
+            </div>
+            <div className="px-2 py-1 rounded-xl bg-rose-50 text-rose-700 border border-rose-100 pill">
+              Out: {fmtUSD(totalOut)}
             </div>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1">
@@ -867,8 +933,8 @@
                   <span
                     className={
                       t.amount >= 0
-                        ? "text-green-700 font-semibold"
-                        : "text-red-700 font-semibold"
+                        ? "text-emerald-600 font-semibold"
+                        : "text-rose-600 font-semibold"
                     }
                   >
                     {t.amount >= 0 ? "+" : ""}
@@ -880,7 +946,7 @@
                   </span>
                 </div>
                 {t.type && (
-                  <div className="text-blue-700 text-[9px]">
+                  <div className="text-blue-700 text-[8px]">
                     {t.type}
                   </div>
                 )}
@@ -903,9 +969,7 @@
       onDeleteUser
     }) {
       if (!roster.length) {
-        return (
-          <p className="text-xs text-slate-500">No student accounts yet.</p>
-        );
+        return <p className="text-[10px] text-slate-500">No student accounts yet.</p>;
       }
 
       const groups = {};
@@ -922,24 +986,24 @@
       });
 
       return (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {classCodes.map(code => (
             <div
               key={code}
-              className="border border-blue-100 rounded-xl p-3 bg-slate-50/80"
+              className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-2"
             >
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-blue-900 text-sm">
-                  Class: {code}
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="text-[10px] font-semibold text-slate-800 uppercase tracking-[0.16em]">
+                  {code === "Unassigned" ? "No Class" : `Class ${code}`}
                 </h3>
-                <span className="text-[10px] text-slate-500">
-                  Students: {groups[code].length}
+                <span className="text-[8px] text-slate-500">
+                  {groups[code].length} student(s)
                 </span>
               </div>
               <div className="space-y-1">
                 {groups[code]
                   .sort((a, b) => (a.uid || "").localeCompare(b.uid || ""))
-                  .map((p, index) => {
+                  .map((p, i) => {
                     const bal = fmtUSD(computeBalance(p));
                     const shortId = String(p.uid || "").slice(-4);
                     const isSelected = p.uid === selectedUserId;
@@ -947,22 +1011,22 @@
                       <div
                         key={p.uid}
                         className={
-                          "flex items-center justify-between gap-2 px-2 py-1 rounded cursor-pointer " +
-                          (isSelected ? "bg-blue-100" : "bg-white")
+                          "flex items-center justify-between gap-2 px-2 py-1.5 rounded-2xl cursor-pointer transition " +
+                          (isSelected ? "bg-blue-50 border border-blue-100" : "bg-slate-50")
                         }
                         onClick={() => onSelectUser(p.uid)}
                       >
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-slate-800">
-                            Student {index + 1} · ID …{shortId}
+                          <span className="text-[10px] font-medium text-slate-800">
+                            Student {i + 1} · ID …{shortId}
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[8px] text-slate-500">
                             Balance: {bal}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="px-2 py-0.5 text-[9px] rounded bg-green-600 text-white"
+                            className="px-2 py-0.5 text-[8px] rounded-full bg-emerald-500 text-white hover:bg-emerald-400"
                             onClick={e => {
                               e.stopPropagation();
                               onAdjust(p.uid, +5, "Admin +5", "Admin");
@@ -971,7 +1035,7 @@
                             +$5
                           </button>
                           <button
-                            className="px-2 py-0.5 text-[9px] rounded bg-red-600 text-white"
+                            className="px-2 py-0.5 text-[8px] rounded-full bg-rose-500 text-white hover:bg-rose-400"
                             onClick={e => {
                               e.stopPropagation();
                               onAdjust(p.uid, -5, "Admin -5", "Admin");
@@ -980,13 +1044,13 @@
                             -$5
                           </button>
                           <button
-                            className="px-2 py-0.5 text-[9px] rounded bg-slate-300 text-slate-800"
+                            className="px-2 py-0.5 text-[8px] rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
                             onClick={e => {
                               e.stopPropagation();
                               onDeleteUser(p.uid);
                             }}
                           >
-                            Remove
+                            ✕
                           </button>
                         </div>
                       </div>
@@ -1002,8 +1066,8 @@
     function AdminTransactionPanel({ user }) {
       if (!user) {
         return (
-          <p className="text-xs text-slate-500">
-            Select a student from the left to see their transactions.
+          <p className="text-[10px] text-slate-500">
+            Select a student from the left to see their activity.
           </p>
         );
       }
@@ -1012,33 +1076,23 @@
         (a, b) => (b.ts || 0) - (a.ts || 0)
       );
       const shortId = String(user.uid || "").slice(-4);
-      const totalIn = rows
-        .filter(t => Number(t.amount) > 0)
-        .reduce((s, t) => s + Number(t.amount), 0);
-      const totalOut = rows
-        .filter(t => Number(t.amount) < 0)
-        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+      const totalIn = rows.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+      const totalOut = rows.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
       return (
-        <div className="flex flex-col h-full text-[10px]">
-          <div className="mb-2 text-slate-700">
+        <div className="flex flex-col h-full text-[9px]">
+          <div className="mb-2 text-slate-700 space-y-0.5">
             <div>Student ID: …{shortId}</div>
             <div>Class: {user.classCode || "Unassigned"}</div>
-            <div>
-              Balance: <strong>{fmtUSD(computeBalance(user))}</strong>
-            </div>
-            <div className="mt-1">
-              <span className="text-green-700 mr-2">
-                In: {fmtUSD(totalIn)}
-              </span>
-              <span className="text-red-700">
-                Out: {fmtUSD(totalOut)}
-              </span>
+            <div>Balance: <strong>{fmtUSD(computeBalance(user))}</strong></div>
+            <div className="mt-1 flex gap-3">
+              <span className="text-emerald-600">In: {fmtUSD(totalIn)}</span>
+              <span className="text-rose-600">Out: {fmtUSD(totalOut)}</span>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto mt-1 space-y-1">
+          <div className="flex-1 overflow-y-auto space-y-1 mt-1">
             {rows.length === 0 ? (
-              <p className="text-xs text-slate-500">No transactions yet.</p>
+              <p className="text-[9px] text-slate-500">No transactions yet.</p>
             ) : (
               rows.map((t, i) => (
                 <div key={i} className="border-b border-slate-100 pb-1">
@@ -1046,8 +1100,8 @@
                     <span
                       className={
                         t.amount >= 0
-                          ? "text-green-700 font-semibold"
-                          : "text-red-700 font-semibold"
+                          ? "text-emerald-600 font-semibold"
+                          : "text-rose-600 font-semibold"
                       }
                     >
                       {t.amount >= 0 ? "+" : ""}
@@ -1059,7 +1113,7 @@
                     </span>
                   </div>
                   {t.type && (
-                    <div className="text-blue-700 text-[9px]">
+                    <div className="text-blue-700 text-[8px]">
                       {t.type}
                     </div>
                   )}
