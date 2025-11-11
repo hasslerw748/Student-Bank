@@ -14,13 +14,37 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Firebase compat SDKs (simpler for inline scripts) -->
+  <!-- Firebase compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <style>
     html, body, #root { height: 100%; }
+
+    body.sb-dark {
+      background: #020817;
+      color: #e5e7eb;
+    }
+    body.sb-dark .panel {
+      background: #0f172a !important;
+      border-color: #1f2937 !important;
+      color: #e5e7eb !important;
+    }
+    body.sb-dark .balance-panel {
+      background: #111827 !important;
+      color: #e5e7eb !important;
+    }
+    body.sb-dark .settings-overlay {
+      background: rgba(0,0,0,0.7);
+    }
+    body.sb-dark input,
+    body.sb-dark select,
+    body.sb-dark textarea {
+      background-color: #020817;
+      color: #e5e7eb;
+      border-color: #374151;
+    }
   </style>
 </head>
 
@@ -41,11 +65,13 @@
       measurementId: "G-2T7F6P5FFV"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    const ADMIN_CODE = "teacher123"; // change this to your own teacher code
+    const ADMIN_CODE = "teacher123"; // change this to your teacher/admin code
 
     // ---------- HELPERS ----------
     function fmtUSD(n) {
@@ -66,7 +92,7 @@
         return () => clearTimeout(t);
       }, [onClose]);
       return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-blue-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg z-50">
           {text}
         </div>
       );
@@ -86,6 +112,37 @@
 
       const [roster, setRoster] = useState([]);
       const [selectedUserId, setSelectedUserId] = useState(null);
+
+      const [showSettings, setShowSettings] = useState(false);
+
+      const [dark, setDark] = useState(() => {
+        if (typeof window === "undefined") return false;
+        return window.localStorage?.getItem("sb_theme") === "dark";
+      });
+
+      const [noNegative, setNoNegative] = useState(() => {
+        if (typeof window === "undefined") return true;
+        const v = window.localStorage?.getItem("sb_no_negative");
+        return v === null ? true : v === "true";
+      });
+
+      const [pinVerified, setPinVerified] = useState(false);
+
+      // Apply dark mode class
+      useEffect(() => {
+        if (dark) {
+          document.body.classList.add("sb-dark");
+          localStorage.setItem("sb_theme", "dark");
+        } else {
+          document.body.classList.remove("sb-dark");
+          localStorage.setItem("sb_theme", "light");
+        }
+      }, [dark]);
+
+      // Persist no-negative
+      useEffect(() => {
+        localStorage.setItem("sb_no_negative", noNegative ? "true" : "false");
+      }, [noNegative]);
 
       // sign in anonymously + ensure profile
       useEffect(() => {
@@ -124,7 +181,7 @@
       }
 
       // ----- Student actions -----
-      async function addMyTransaction(amount, memo) {
+      async function addMyTransaction(amount, memo, type) {
         if (!uid) return;
         const value = Number(amount);
         if (!value) return;
@@ -133,6 +190,7 @@
           transactions: firebase.firestore.FieldValue.arrayUnion({
             amount: value,
             memo: memo || null,
+            type: type || null,
             ts: Date.now()
           })
         });
@@ -153,6 +211,19 @@
         notify("Class updated.");
       }
 
+      async function setMyPin(newPin) {
+        if (!uid) return;
+        const clean = String(newPin || "").trim();
+        if (!clean) {
+          await db.collection("profiles").doc(uid).update({ pin: firebase.firestore.FieldValue.delete() });
+          setPinVerified(false);
+          notify("PIN removed.");
+          return;
+        }
+        await db.collection("profiles").doc(uid).update({ pin: clean });
+        notify("PIN set.");
+      }
+
       // ----- Admin mode -----
       function enterAdmin() {
         if (adminCodeInput.trim() !== ADMIN_CODE) {
@@ -160,6 +231,7 @@
           return;
         }
         setIsAdmin(true);
+        setShowSettings(false);
         notify("Admin view enabled.");
 
         db.collection("profiles").onSnapshot(snap => {
@@ -172,12 +244,13 @@
         });
       }
 
-      async function adminAdjust(uidTarget, delta, memo) {
+      async function adminAdjust(uidTarget, delta, memo, type = "Admin") {
         const ref = db.collection("profiles").doc(uidTarget);
         await ref.update({
           transactions: firebase.firestore.FieldValue.arrayUnion({
             amount: Number(delta),
             memo: memo || `Admin ${delta > 0 ? "+" : ""}${delta}`,
+            type,
             ts: Date.now()
           })
         });
@@ -203,11 +276,42 @@
         [roster, selectedUserId]
       );
 
+      const myShortId = uid ? String(uid).slice(-4) : "";
+
+      const totalStudents = roster.length;
+      const totalBalance = roster.reduce(
+        (sum, p) => sum + computeBalance(p),
+        0
+      );
+
+      // ---------- PIN LOCK ----------
+      const needsPin = profile && profile.pin && !isAdmin;
+      if (!loading && !initError && profile && needsPin && !pinVerified) {
+        return (
+          <PinLockScreen
+            onUnlock={pin => {
+              if (pin === String(profile.pin)) {
+                setPinVerified(true);
+              } else {
+                alert("Incorrect PIN.");
+              }
+            }}
+            onClearPin={async () => {
+              await db.collection("profiles").doc(uid).update({
+                pin: firebase.firestore.FieldValue.delete()
+              });
+              setPinVerified(true);
+              notify("PIN cleared for this account.");
+            }}
+          />
+        );
+      }
+
       // ---------- UI states ----------
       if (loading) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="bg-white border border-blue-100 rounded-2xl p-8 shadow">
+            <div className="panel bg-white border border-blue-100 rounded-2xl p-8 shadow">
               <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
               <p className="text-sm text-slate-600">Creating your account…</p>
             </div>
@@ -218,7 +322,7 @@
       if (initError) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="bg-white border border-red-200 rounded-2xl p-8 shadow">
+            <div className="panel bg-white border border-red-200 rounded-2xl p-8 shadow">
               <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
               <p className="text-sm text-red-600">Error: {initError}</p>
             </div>
@@ -229,7 +333,7 @@
       if (!profile) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="bg-white border border-blue-100 rounded-2xl p-8 shadow">
+            <div className="panel bg-white border border-blue-100 rounded-2xl p-8 shadow">
               <h1 className="text-2xl font-bold text-blue-900 mb-2">Student Banking</h1>
               <p className="text-sm text-slate-600">Loading…</p>
             </div>
@@ -245,24 +349,37 @@
               <div>
                 <h1 className="text-3xl font-bold text-blue-900">Student Banking — Admin</h1>
                 <p className="text-sm text-slate-600">
-                  View classes, adjust balances, and manage students. (IDs shown are non-identifying.)
+                  View classes, adjust balances, and manage student accounts.
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Total students: <strong>{totalStudents}</strong> · Total balance:{" "}
+                  <strong>{fmtUSD(totalBalance)}</strong>
                 </p>
               </div>
-              <button
-                className="px-3 py-1.5 text-xs rounded bg-slate-200 text-slate-700"
-                onClick={() => {
-                  setIsAdmin(false);
-                  setRoster([]);
-                  setSelectedUserId(null);
-                }}
-              >
-                Exit Admin View
-              </button>
+              <div className="flex gap-2 items-center">
+                <button
+                  className="px-3 py-1.5 text-xs rounded bg-slate-200 text-slate-700"
+                  onClick={() => {
+                    setIsAdmin(false);
+                    setRoster([]);
+                    setSelectedUserId(null);
+                    setAdminCodeInput("");
+                  }}
+                >
+                  Exit Admin View
+                </button>
+                <button
+                  className="px-3 py-1.5 text-xs rounded bg-slate-900 text-white"
+                  onClick={() => setDark(d => !d)}
+                >
+                  {dark ? "Light Mode" : "Dark Mode"}
+                </button>
+              </div>
             </header>
 
             <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 h-[80vh]">
               {/* Classes & Students */}
-              <section className="lg:col-span-2 bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
+              <section className="panel lg:col-span-2 bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
                 <h2 className="text-lg font-semibold text-blue-900 mb-3">Classes & Students</h2>
                 <AdminClassList
                   roster={roster}
@@ -274,7 +391,7 @@
               </section>
 
               {/* Transaction info for selected student */}
-              <section className="bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
+              <section className="panel bg-white rounded-2xl p-4 shadow-sm border border-blue-100 overflow-y-auto">
                 <h2 className="text-lg font-semibold text-blue-900 mb-3">Transaction Information</h2>
                 <AdminTransactionPanel user={selectedUser} />
               </section>
@@ -295,60 +412,285 @@
                 Track your classroom bank balance and transactions.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                className="border border-blue-200 rounded px-2 py-1 text-xs"
-                placeholder="Teacher code"
-                value={adminCodeInput}
-                onChange={e => setAdminCodeInput(e.target.value)}
-              />
-              <button
-                className="bg-blue-900 text-white px-3 py-1.5 rounded text-xs"
-                onClick={enterAdmin}
-              >
-                Admin
-              </button>
-            </div>
+            <button
+              className="px-3 py-1.5 rounded-full border border-blue-200 text-xs text-blue-900 bg-white hover:bg-blue-50"
+              onClick={() => setShowSettings(true)}
+            >
+              Settings ⚙️
+            </button>
           </header>
 
           <main className="max-w-6xl mx-auto flex-1 flex flex-col gap-4">
             {/* Big Balance Panel */}
-            <div className="bg-blue-900 text-white rounded-2xl p-6 text-center shadow">
+            <div className="balance-panel rounded-2xl p-6 text-center shadow bg-blue-900 text-white">
               <h2 className="text-lg font-semibold">Current Balance</h2>
               <p className="text-5xl font-bold mt-1">{fmtUSD(myBalance)}</p>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-4 flex-1">
               {/* Left: controls + list */}
-              <section className="flex-1 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col gap-3">
+              <section className="panel flex-1 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500">Class code:</span>
                   <ClassCodeEditor current={profile.classCode} onSave={setMyClassCode} />
                 </div>
-                <StudentTransactionForm onAdd={addMyTransaction} onUndo={undoMyLast} />
+                <StudentTransactionForm
+                  onAdd={addMyTransaction}
+                  onUndo={undoMyLast}
+                  noNegative={noNegative}
+                  balance={myBalance}
+                  notify={notify}
+                />
                 <StudentTransactionList transactions={profile.transactions || []} />
               </section>
 
               {/* Right: transaction info */}
-              <section className="w-full lg:w-1/3 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col">
+              <section className="panel w-full lg:w-1/3 bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col">
                 <h2 className="text-lg font-semibold text-blue-900 mb-1">
                   Transaction Information
                 </h2>
                 <p className="text-xs text-slate-600 mb-2">
-                  See the date, time, amount, and notes for your recent activity.
+                  Mini statement: totals and recent activity.
                 </p>
                 <StudentTransactionInfo transactions={profile.transactions || []} />
               </section>
             </div>
           </main>
 
+          {/* Settings Panel */}
+          {showSettings && (
+            <SettingsPanel
+              onClose={() => setShowSettings(false)}
+              dark={dark}
+              setDark={setDark}
+              noNegative={noNegative}
+              setNoNegative={setNoNegative}
+              adminCode={adminCodeInput}
+              setAdminCode={setAdminCodeInput}
+              onEnterAdmin={enterAdmin}
+              shortId={myShortId}
+              onSetPin={setMyPin}
+              hasPin={!!profile.pin}
+            />
+          )}
+
           {toast && <Toast text={toast} onClose={() => setToast(null)} />}
         </div>
       );
     }
 
-    // ---------- STUDENT COMPONENTS ----------
+    // ---------- PIN LOCK SCREEN ----------
+    function PinLockScreen({ onUnlock, onClearPin }) {
+      const [pin, setPin] = useState("");
 
+      function submit() {
+        if (!pin.trim()) return;
+        onUnlock(pin.trim());
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="panel bg-white border border-blue-100 rounded-2xl p-6 shadow max-w-xs w-full text-center">
+            <h1 className="text-xl font-bold text-blue-900 mb-2">Enter PIN</h1>
+            <p className="text-xs text-slate-600 mb-3">
+              This account is locked. Enter your 2–4 digit PIN to continue.
+            </p>
+            <input
+              type="password"
+              maxLength={4}
+              className="border border-blue-200 rounded px-3 py-2 text-center text-lg tracking-widest w-full mb-3"
+              value={pin}
+              onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && submit()}
+            />
+            <button
+              className="w-full bg-blue-900 text-white py-2 rounded text-sm mb-2"
+              onClick={submit}
+            >
+              Unlock
+            </button>
+            <button
+              className="w-full bg-slate-100 text-slate-600 py-1.5 rounded text-[10px]"
+              onClick={onClearPin}
+            >
+              I forgot my PIN (clear it on this account)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- SETTINGS PANEL ----------
+    function SettingsPanel({
+      onClose,
+      dark,
+      setDark,
+      noNegative,
+      setNoNegative,
+      adminCode,
+      setAdminCode,
+      onEnterAdmin,
+      shortId,
+      onSetPin,
+      hasPin
+    }) {
+      const [pinInput, setPinInput] = useState("");
+      const [pinMode, setPinMode] = useState(hasPin ? "change" : "set");
+
+      function savePin() {
+        const v = pinInput.trim();
+        if (!v) {
+          onSetPin("");
+          setPinInput("");
+          return;
+        }
+        if (!/^\d{2,4}$/.test(v)) {
+          alert("PIN must be 2–4 digits.");
+          return;
+        }
+        onSetPin(v);
+        setPinInput("");
+      }
+
+      function clearPin() {
+        onSetPin("");
+        setPinInput("");
+      }
+
+      return (
+        <div className="fixed inset-0 settings-overlay bg-black/40 flex justify-end z-40">
+          <div className="panel h-full w-80 bg-white border-l border-blue-100 shadow-xl p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-blue-900">Settings</h2>
+              <button
+                className="text-xs text-slate-500 hover:text-slate-800"
+                onClick={onClose}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs flex-1 overflow-y-auto">
+              {/* ID */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-1">Your ID</h3>
+                <p className="text-slate-600">
+                  4-digit ID:
+                  <span className="font-mono font-semibold ml-1">
+                    …{shortId || "----"}
+                  </span>
+                </p>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Share this with your teacher if they need to find your account.
+                </p>
+              </div>
+
+              {/* Appearance */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-1">Appearance</h3>
+                <button
+                  className="px-3 py-1.5 rounded-full border border-blue-200 text-[11px] bg-white hover:bg-blue-50"
+                  onClick={() => setDark(d => !d)}
+                >
+                  {dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </button>
+              </div>
+
+              {/* Negative balance lock */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-1">Balance Rules</h3>
+                <label className="inline-flex items-center gap-2 text-[11px]">
+                  <input
+                    type="checkbox"
+                    checked={noNegative}
+                    onChange={e => setNoNegative(e.target.checked)}
+                  />
+                  <span>Block going below $0 on this device</span>
+                </label>
+                <p className="text-[9px] text-slate-500 mt-1">
+                  If on, withdrawals that would make your balance negative are not allowed.
+                </p>
+              </div>
+
+              {/* PIN */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-1">PIN Lock (Optional)</h3>
+                <p className="text-[10px] text-slate-500 mb-1">
+                  Set a 2–4 digit PIN to lock this account on this device. Not a password, just a simple lock.
+                </p>
+                <div className="flex gap-1 mb-1">
+                  <button
+                    className={
+                      "px-2 py-1 rounded text-[10px] " +
+                      (pinMode === "set"
+                        ? "bg-blue-900 text-white"
+                        : "bg-slate-100 text-slate-700")
+                    }
+                    onClick={() => setPinMode("set")}
+                  >
+                    {hasPin ? "Change PIN" : "Set PIN"}
+                  </button>
+                  {hasPin && (
+                    <button
+                      className="px-2 py-1 rounded text-[10px] bg-slate-100 text-slate-700"
+                      onClick={clearPin}
+                    >
+                      Remove PIN
+                    </button>
+                  )}
+                </div>
+                {pinMode === "set" && (
+                  <div className="flex gap-2 items-center mt-1">
+                    <input
+                      type="password"
+                      maxLength={4}
+                      className="border border-blue-200 rounded px-2 py-1 text-[11px] w-20 text-center"
+                      placeholder="1234"
+                      value={pinInput}
+                      onChange={e =>
+                        setPinInput(e.target.value.replace(/\D/g, ""))
+                      }
+                    />
+                    <button
+                      className="px-2 py-1 rounded text-[10px] bg-blue-900 text-white"
+                      onClick={savePin}
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Teacher / Admin */}
+              <div>
+                <h3 className="font-semibold text-slate-800 mb-1">Teacher Access</h3>
+                <p className="text-[10px] text-slate-500 mb-1">
+                  Teachers only: enter the admin code to open Admin View on this device.
+                </p>
+                <input
+                  className="border border-blue-200 rounded px-2 py-1 text-[11px] w-full mb-2"
+                  placeholder="Teacher admin code"
+                  value={adminCode}
+                  onChange={e => setAdminCode(e.target.value)}
+                />
+                <button
+                  className="w-full bg-blue-900 text-white px-3 py-1.5 rounded text-[11px]"
+                  onClick={onEnterAdmin}
+                >
+                  Enter Admin View
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[9px] text-slate-400 mt-2">
+              No names or emails are stored. Accounts use device sign-in, class codes, and IDs only.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ---------- STUDENT COMPONENTS ----------
     function ClassCodeEditor({ current, onSave }) {
       const [value, setValue] = useState(current || "");
 
@@ -374,15 +716,23 @@
       );
     }
 
-    function StudentTransactionForm({ onAdd, onUndo }) {
+    function StudentTransactionForm({ onAdd, onUndo, noNegative, balance, notify }) {
       const [amount, setAmount] = useState("");
       const [memo, setMemo] = useState("");
+      const [type, setType] = useState("Reward");
 
       function handle(sign) {
         const n = parseFloat(amount);
         if (Number.isNaN(n) || n <= 0) return;
         const value = sign * n;
-        onAdd(value, memo || (value > 0 ? "Deposit" : "Withdraw"));
+
+        if (sign < 0 && noNegative && balance + value < 0) {
+          notify("This would put your balance below $0. Not allowed.");
+          return;
+        }
+
+        const label = memo || (value > 0 ? "Deposit" : "Withdraw");
+        onAdd(value, label, type === "Other" ? null : type);
         setAmount("");
         setMemo("");
       }
@@ -399,11 +749,22 @@
           />
           <input
             type="text"
-            className="border border-blue-200 rounded px-2 py-1 text-sm flex-1 min-w-[140px]"
+            className="border border-blue-200 rounded px-2 py-1 text-sm flex-1 min-w-[120px]"
             placeholder="Note (optional)"
             value={memo}
             onChange={e => setMemo(e.target.value)}
           />
+          <select
+            className="border border-blue-200 rounded px-2 py-1 text-xs"
+            value={type}
+            onChange={e => setType(e.target.value)}
+          >
+            <option>Reward</option>
+            <option>Fine</option>
+            <option>Bonus</option>
+            <option>Store</option>
+            <option>Other</option>
+          </select>
           <button
             className="bg-green-600 text-white px-3 py-1.5 rounded text-sm"
             onClick={() => handle(+1)}
@@ -441,10 +802,17 @@
         <div className="mt-2 flex-1 overflow-y-auto border border-blue-100 rounded-xl bg-white">
           <ul className="divide-y divide-blue-50 text-xs">
             {rows.map((t, i) => (
-              <li key={i} className="px-3 py-2 flex items-center justify-between">
-                <span>
-                  {new Date(t.ts || Date.now()).toLocaleString()} — {t.memo || "—"}
-                </span>
+              <li key={i} className="px-3 py-2 flex items-center justify-between gap-2">
+                <div className="flex flex-col">
+                  <span>
+                    {new Date(t.ts || Date.now()).toLocaleString()} — {t.memo || "—"}
+                  </span>
+                  {t.type && (
+                    <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[9px] border border-blue-100">
+                      {t.type}
+                    </span>
+                  )}
+                </div>
                 <span
                   className={
                     t.amount >= 0
@@ -464,42 +832,69 @@
 
     function StudentTransactionInfo({ transactions }) {
       const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
-
       if (!rows.length) {
         return (
           <div className="text-xs text-slate-500">
-            When you make transactions, details will show here.
+            When you make transactions, your mini statement will show here.
           </div>
         );
       }
 
+      const totalIn = rows
+        .filter(t => Number(t.amount) > 0)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const totalOut = rows
+        .filter(t => Number(t.amount) < 0)
+        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+
       return (
-        <div className="text-[10px] space-y-1 overflow-y-auto flex-1">
-          {rows.slice(0, 40).map((t, i) => (
-            <div key={i} className="border-b border-slate-100 pb-1">
-              <div
-                className={
-                  t.amount >= 0
-                    ? "text-green-700 font-semibold"
-                    : "text-red-700 font-semibold"
-                }
-              >
-                {t.amount >= 0 ? "+" : ""}
-                {Number(t.amount).toFixed(2)}
-              </div>
-              <div className="text-slate-600">{t.memo || "No note"}</div>
-              <div className="text-slate-500">
-                {new Date(t.ts || Date.now()).toLocaleDateString()}{" "}
-                {new Date(t.ts || Date.now()).toLocaleTimeString()}
-              </div>
+        <div className="text-[10px] flex flex-col gap-2 h-full">
+          <div className="mb-1">
+            <div>Totals (all time):</div>
+            <div className="flex gap-4 mt-0.5">
+              <span className="text-green-700 font-semibold">
+                In: {fmtUSD(totalIn)}
+              </span>
+              <span className="text-red-700 font-semibold">
+                Out: {fmtUSD(totalOut)}
+              </span>
             </div>
-          ))}
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-1">
+            {rows.slice(0, 40).map((t, i) => (
+              <div key={i} className="border-b border-slate-100 pb-1">
+                <div className="flex justify-between gap-2">
+                  <span
+                    className={
+                      t.amount >= 0
+                        ? "text-green-700 font-semibold"
+                        : "text-red-700 font-semibold"
+                    }
+                  >
+                    {t.amount >= 0 ? "+" : ""}
+                    {Number(t.amount).toFixed(2)}
+                  </span>
+                  <span className="text-slate-500">
+                    {new Date(t.ts || Date.now()).toLocaleDateString()}{" "}
+                    {new Date(t.ts || Date.now()).toLocaleTimeString()}
+                  </span>
+                </div>
+                {t.type && (
+                  <div className="text-blue-700 text-[9px]">
+                    {t.type}
+                  </div>
+                )}
+                <div className="text-slate-600">
+                  {t.memo || "No note"}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
 
     // ---------- ADMIN COMPONENTS ----------
-
     function AdminClassList({
       roster,
       selectedUserId,
@@ -543,9 +938,7 @@
               </div>
               <div className="space-y-1">
                 {groups[code]
-                  .sort((a, b) =>
-                    (a.uid || "").localeCompare(b.uid || "")
-                  )
+                  .sort((a, b) => (a.uid || "").localeCompare(b.uid || ""))
                   .map((p, index) => {
                     const bal = fmtUSD(computeBalance(p));
                     const shortId = String(p.uid || "").slice(-4);
@@ -572,7 +965,7 @@
                             className="px-2 py-0.5 text-[9px] rounded bg-green-600 text-white"
                             onClick={e => {
                               e.stopPropagation();
-                              onAdjust(p.uid, +5, "Admin +5");
+                              onAdjust(p.uid, +5, "Admin +5", "Admin");
                             }}
                           >
                             +$5
@@ -581,7 +974,7 @@
                             className="px-2 py-0.5 text-[9px] rounded bg-red-600 text-white"
                             onClick={e => {
                               e.stopPropagation();
-                              onAdjust(p.uid, -5, "Admin -5");
+                              onAdjust(p.uid, -5, "Admin -5", "Admin");
                             }}
                           >
                             -$5
@@ -619,14 +1012,28 @@
         (a, b) => (b.ts || 0) - (a.ts || 0)
       );
       const shortId = String(user.uid || "").slice(-4);
+      const totalIn = rows
+        .filter(t => Number(t.amount) > 0)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const totalOut = rows
+        .filter(t => Number(t.amount) < 0)
+        .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
 
       return (
         <div className="flex flex-col h-full text-[10px]">
           <div className="mb-2 text-slate-700">
             <div>Student ID: …{shortId}</div>
-            <div>Class: {user.classCode || "Unassigned"} </div>
+            <div>Class: {user.classCode || "Unassigned"}</div>
             <div>
               Balance: <strong>{fmtUSD(computeBalance(user))}</strong>
+            </div>
+            <div className="mt-1">
+              <span className="text-green-700 mr-2">
+                In: {fmtUSD(totalIn)}
+              </span>
+              <span className="text-red-700">
+                Out: {fmtUSD(totalOut)}
+              </span>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto mt-1 space-y-1">
@@ -634,10 +1041,7 @@
               <p className="text-xs text-slate-500">No transactions yet.</p>
             ) : (
               rows.map((t, i) => (
-                <div
-                  key={i}
-                  className="border-b border-slate-100 pb-1"
-                >
+                <div key={i} className="border-b border-slate-100 pb-1">
                   <div className="flex justify-between gap-2">
                     <span
                       className={
@@ -654,6 +1058,11 @@
                       {new Date(t.ts || Date.now()).toLocaleTimeString()}
                     </span>
                   </div>
+                  {t.type && (
+                    <div className="text-blue-700 text-[9px]">
+                      {t.type}
+                    </div>
+                  )}
                   <div className="text-slate-600">
                     {t.memo || "No note"}
                   </div>
