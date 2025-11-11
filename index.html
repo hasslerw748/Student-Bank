@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Student Banking</title>
 
-  <!-- Tailwind -->
+  <!-- Tailwind (basic config) -->
   <script>
     window.tailwind = {
       config: {
@@ -13,7 +13,7 @@
         theme: {
           extend: {
             fontFamily: {
-              sans: ['system-ui', 'SF Pro Text', 'system-ui', 'sans-serif'],
+              sans: ['system-ui', 'SF Pro Text', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
             }
           }
         }
@@ -36,56 +36,73 @@
     html, body, #root { height: 100%; }
 
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, -webkit-system-font, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f3f4f6;
       color: #020817;
     }
 
-    /* DARK MODE OVERRIDES – make everything deep + consistent */
+    /* Accent: muted indigo */
+    :root {
+      --accent: #4f46e5;
+      --accent-soft: #6366f1;
+      --accent-subtle: #eef2ff;
+      --accent-dark: #3730a3;
+    }
+
+    /* Panels & balance */
+    .panel {
+      background-color: #ffffff;
+      border-radius: 1.5rem;
+      border: 1px solid #e5e7eb;
+      box-shadow: 0 18px 40px rgba(15,23,42,0.08);
+    }
+
+    .balance-panel {
+      border-radius: 1.75rem;
+      background-color: #111827;
+      color: #e5e7eb;
+      box-shadow: 0 24px 60px rgba(15,23,42,0.5);
+    }
+
+    /* Dark mode: deep, unified */
     body.sb-dark {
       background-color: #020817 !important;
       color: #e5e7eb !important;
     }
 
-    /* Generic surface panels */
     body.sb-dark .panel,
     body.sb-dark .balance-panel {
       background-color: #020817 !important;
       border-color: #111827 !important;
       color: #e5e7eb !important;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.6) !important;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.7) !important;
     }
 
-    /* Kill light backgrounds from Tailwind utility classes */
     body.sb-dark .bg-white,
     body.sb-dark .bg-slate-50,
     body.sb-dark .bg-slate-100,
-    body.sb-dark .bg-slate-200,
     body.sb-dark .bg-blue-50,
-    body.sb-dark .bg-blue-100 {
+    body.sb-dark .bg-indigo-50 {
       background-color: #020817 !important;
     }
 
-    /* Borders */
-    body.sb-dark .border-blue-50,
-    body.sb-dark .border-blue-100,
     body.sb-dark .border-slate-100,
-    body.sb-dark .border-slate-200 {
+    body.sb-dark .border-slate-200,
+    body.sb-dark .border-blue-100 {
       border-color: #111827 !important;
     }
 
-    /* Text colors */
     body.sb-dark .text-slate-500,
     body.sb-dark .text-slate-600,
     body.sb-dark .text-slate-700 {
       color: #9ca3af !important;
     }
+
     body.sb-dark .text-blue-900,
-    body.sb-dark .text-blue-800 {
+    body.sb-dark .text-indigo-900 {
       color: #e5e7eb !important;
     }
 
-    /* Inputs / selects / textareas */
     body.sb-dark input,
     body.sb-dark select,
     body.sb-dark textarea {
@@ -93,29 +110,100 @@
       color: #e5e7eb !important;
       border-color: #1f2937 !important;
     }
+
     body.sb-dark input::placeholder,
     body.sb-dark textarea::placeholder {
       color: #6b7280 !important;
     }
 
-    /* Buttons basic */
-    body.sb-dark .btn-soft {
-      background-color: #020817 !important;
-      border-color: #111827 !important;
-      color: #e5e7eb !important;
-    }
-
-    /* Settings overlay */
     body.sb-dark .settings-overlay {
-      background: rgba(0,0,0,0.85) !important;
+      background: rgba(0,0,0,0.9) !important;
     }
 
-    /* Tags / pills */
+    .pill, .tag {
+      border-radius: 999px;
+      border: 1px solid var(--accent-subtle);
+      background-color: var(--accent-subtle);
+      color: var(--accent-dark);
+      padding: 2px 8px;
+      font-size: 0.65rem;
+    }
+
     body.sb-dark .pill,
     body.sb-dark .tag {
       background-color: #020817 !important;
-      color: #60a5fa !important;
       border-color: #1f2937 !important;
+      color: var(--accent-soft) !important;
+    }
+
+    .tab-btn {
+      padding: 0.45rem 0.9rem;
+      font-size: 0.8rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      color: #6b7280;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-subtle);
+      color: var(--accent-dark);
+      border-color: var(--accent);
+      box-shadow: 0 6px 14px rgba(79,70,229,0.16);
+    }
+
+    body.sb-dark .tab-btn {
+      color: #9ca3af;
+    }
+    body.sb-dark .tab-btn.active {
+      background: #111827;
+      color: var(--accent-soft);
+      border-color: var(--accent-soft);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.7);
+    }
+
+    .btn-accent {
+      background-color: var(--accent);
+      color: #ffffff;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.8rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .btn-accent:hover {
+      background-color: var(--accent-dark);
+      box-shadow: 0 10px 24px rgba(79,70,229,0.35);
+    }
+
+    .btn-soft {
+      background-color: #f9fafb;
+      color: #4b5563;
+      border-radius: 999px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.78rem;
+      border: 1px solid #e5e7eb;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .btn-soft:hover {
+      background-color: #eef2ff;
+      color: var(--accent-dark);
+      border-color: var(--accent-subtle);
+    }
+
+    body.sb-dark .btn-soft {
+      background-color: #020817;
+      color: #9ca3af;
+      border-color: #111827;
+    }
+    body.sb-dark .btn-soft:hover {
+      background-color: #111827;
+      color: var(--accent-soft);
+      border-color: var(--accent-soft);
     }
   </style>
 </head>
@@ -143,7 +231,7 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
-    const ADMIN_CODE = "teacher123"; // change this to your teacher/admin code
+    const ADMIN_CODE = "teacher123"; // change for your classroom
 
     // ---------- HELPERS ----------
     function fmtUSD(n) {
@@ -164,7 +252,7 @@
         return () => clearTimeout(t);
       }, [onClose]);
       return (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-sm px-4 py-2 rounded-2xl shadow-2xl z-50">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#111827] text-white text-sm px-4 py-2 rounded-2xl shadow-2xl z-50">
           {text}
         </div>
       );
@@ -199,6 +287,7 @@
       });
 
       const [pinVerified, setPinVerified] = useState(false);
+      const [activeTab, setActiveTab] = useState("all"); // all, deductions, savings, goals
 
       // Apply dark mode
       useEffect(() => {
@@ -216,7 +305,7 @@
         localStorage.setItem("sb_no_negative", noNegative ? "true" : "false");
       }, [noNegative]);
 
-      // Sign in anonymously & load profile
+      // Firebase anon auth + profile
       useEffect(() => {
         (async () => {
           try {
@@ -348,12 +437,8 @@
       );
 
       const myShortId = uid ? String(uid).slice(-4) : "";
-
       const totalStudents = roster.length;
-      const totalBalance = roster.reduce(
-        (sum, p) => sum + computeBalance(p),
-        0
-      );
+      const totalBalance = roster.reduce((sum, p) => sum + computeBalance(p), 0);
 
       // ---------- PIN LOCK ----------
       const needsPin = profile && profile.pin && !isAdmin;
@@ -377,43 +462,35 @@
 
       // ---------- Basic states ----------
       if (loading) {
-        return (
-          <CenterCard title="Student Banking" text="Creating your secure account..." />
-        );
+        return <CenterCard title="Student Banking" text="Creating your account…" />;
       }
-
       if (initError) {
-        return (
-          <CenterCard title="Student Banking" error={initError} />
-        );
+        return <CenterCard title="Student Banking" error={initError} />;
       }
-
       if (!profile) {
-        return (
-          <CenterCard title="Student Banking" text="Loading your account..." />
-        );
+        return <CenterCard title="Student Banking" text="Loading your account…" />;
       }
 
       // ---------- Admin View ----------
       if (isAdmin) {
         return (
-          <div className="min-h-screen px-6 py-4 bg-slate-950/5">
+          <div className="min-h-screen px-6 py-4">
             <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-blue-900">
-                  Student Banking <span className="text-slate-500">Admin</span>
+                <h1 className="text-3xl font-semibold tracking-tight text-[#111827]">
+                  Student Banking <span className="text-sm text-slate-500">Admin</span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
                   Monitor classes, adjust balances, and review activity.
                 </p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Total students: <strong>{totalStudents}</strong> · Total balance:{" "}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Students: <strong>{totalStudents}</strong> · Total balance:{" "}
                   <strong>{fmtUSD(totalBalance)}</strong>
                 </p>
               </div>
               <div className="flex gap-2 items-center">
                 <button
-                  className="px-3 py-1.5 text-xs rounded-full bg-slate-200 text-slate-800 hover:bg-slate-300 transition"
+                  className="btn-soft"
                   onClick={() => {
                     setIsAdmin(false);
                     setRoster([]);
@@ -424,7 +501,7 @@
                   Exit Admin
                 </button>
                 <button
-                  className="px-3 py-1.5 text-xs rounded-full bg-slate-900 text-white hover:bg-black transition"
+                  className="btn-accent"
                   onClick={() => setDark(d => !d)}
                 >
                   {dark ? "Light Mode" : "Dark Mode"}
@@ -433,8 +510,8 @@
             </header>
 
             <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4 h-[80vh]">
-              <section className="panel lg:col-span-2 rounded-3xl p-4 border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.12)] overflow-y-auto">
-                <h2 className="text-sm font-semibold text-slate-800 mb-3 tracking-wide">
+              <section className="panel lg:col-span-2 p-4 overflow-y-auto">
+                <h2 className="text-sm font-semibold text-[#111827] mb-3">
                   Classes & Students
                 </h2>
                 <AdminClassList
@@ -446,8 +523,8 @@
                 />
               </section>
 
-              <section className="panel rounded-3xl p-4 border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.12)] overflow-y-auto">
-                <h2 className="text-sm font-semibold text-slate-800 mb-3 tracking-wide">
+              <section className="panel p-4 overflow-y-auto">
+                <h2 className="text-sm font-semibold text-[#111827] mb-3">
                   Transaction Information
                 </h2>
                 <AdminTransactionPanel user={selectedUser} />
@@ -461,18 +538,18 @@
 
       // ---------- Student View ----------
       return (
-        <div className="min-h-screen px-6 py-4 bg-slate-50/80">
+        <div className="min-h-screen px-6 py-4">
           <header className="max-w-6xl mx-auto mb-4 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+              <h1 className="text-3xl font-semibold tracking-tight text-[#111827]">
                 Student Banking
               </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                A clean place to track your classroom money.
+              <p className="text-sm text-slate-500 mt-1">
+                A clean, simple place to track classroom money.
               </p>
             </div>
             <button
-              className="px-3 py-1.5 rounded-full border border-slate-200 text-[11px] text-slate-800 bg-white hover:bg-slate-50 shadow-sm transition"
+              className="btn-soft"
               onClick={() => setShowSettings(true)}
             >
               Settings ⚙️
@@ -481,25 +558,53 @@
 
           <main className="max-w-6xl mx-auto flex-1 flex flex-col gap-4">
             {/* Balance Panel */}
-            <div className="balance-panel relative rounded-3xl p-6 text-center shadow-[0_22px_55px_rgba(37,99,235,0.18)] bg-gradient-to-r from-blue-600 via-blue-700 to-slate-900 text-white overflow-hidden">
-              <div className="absolute -right-16 -top-16 w-40 h-40 rounded-full bg-white/5 blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 bottom-0 w-32 h-32 rounded-full bg-blue-300/10 blur-3xl pointer-events-none" />
-              <h2 className="text-xs uppercase tracking-[0.16em] text-blue-100/80">
+            <div className="balance-panel relative p-6 text-center overflow-hidden">
+              <div className="absolute -right-20 -top-24 w-56 h-56 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -left-24 bottom-[-40px] w-52 h-52 rounded-full bg-indigo-400/5 blur-3xl pointer-events-none" />
+              <h2 className="text-sm tracking-[0.16em] uppercase text-slate-300">
                 Available Balance
               </h2>
-              <p className="mt-1 text-5xl font-semibold tabular-nums tracking-tight">
+              <p className="mt-2 text-5xl font-semibold tracking-tight">
                 {fmtUSD(myBalance)}
               </p>
-              <p className="mt-1 text-[10px] text-blue-100/80">
-                Updated instantly with every classroom transaction.
+              <p className="mt-1 text-sm text-slate-400">
+                Updated with every classroom deposit or deduction.
               </p>
             </div>
 
+            {/* Tabs under balance */}
+            <div className="panel p-3 flex items-center justify-center gap-2">
+              <button
+                className={`tab-btn ${activeTab === "all" ? "active" : ""}`}
+                onClick={() => setActiveTab("all")}
+              >
+                All
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "deductions" ? "active" : ""}`}
+                onClick={() => setActiveTab("deductions")}
+              >
+                Deductions
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "savings" ? "active" : ""}`}
+                onClick={() => setActiveTab("savings")}
+              >
+                Savings
+              </button>
+              <button
+                className={`tab-btn ${activeTab === "goals" ? "active" : ""}`}
+                onClick={() => setActiveTab("goals")}
+              >
+                Goals
+              </button>
+            </div>
+
             <div className="flex flex-col lg:flex-row gap-4 flex-1">
-              {/* Left Column */}
-              <section className="panel flex-1 rounded-3xl p-4 border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)] flex flex-col gap-3">
+              {/* Left: input + filtered list */}
+              <section className="panel flex-1 p-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-500">Class code</span>
+                  <span className="text-sm text-slate-500">Class code</span>
                   <ClassCodeEditor current={profile.classCode} onSave={setMyClassCode} />
                 </div>
                 <StudentTransactionForm
@@ -509,18 +614,28 @@
                   balance={myBalance}
                   notify={notify}
                 />
-                <StudentTransactionList transactions={profile.transactions || []} />
+                <StudentTransactionList
+                  transactions={profile.transactions || []}
+                  activeTab={activeTab}
+                />
               </section>
 
-              {/* Right Column */}
-              <section className="panel w-full lg:w-1/3 rounded-3xl p-4 border border-slate-200/80 bg-white/95 backdrop-blur-sm shadow-[0_18px_40px_rgba(15,23,42,0.08)] flex flex-col">
-                <h2 className="text-sm font-semibold text-slate-800 mb-1 tracking-wide">
+              {/* Right: mini statement for selected tab */}
+              <section className="panel w-full lg:w-1/3 p-4 flex flex-col">
+                <h2 className="text-base font-semibold text-[#111827] mb-1">
                   Mini Statement
                 </h2>
-                <p className="text-[10px] text-slate-500 mb-2">
-                  Totals plus your latest activity, like a simple bank statement.
+                <p className="text-sm text-slate-500 mb-2">
+                  View totals and recent activity for{" "}
+                  {activeTab === "all" && "all transactions."}
+                  {activeTab === "deductions" && "deductions only."}
+                  {activeTab === "savings" && "savings-related transactions."}
+                  {activeTab === "goals" && "goal-tagged transactions."}
                 </p>
-                <StudentTransactionInfo transactions={profile.transactions || []} />
+                <StudentTransactionInfo
+                  transactions={profile.transactions || []}
+                  activeTab={activeTab}
+                />
               </section>
             </div>
           </main>
@@ -547,22 +662,20 @@
       );
     }
 
-    // ---------- SMALL PIECES ----------
+    // ---------- SMALL COMPONENTS ----------
 
     function CenterCard({ title, text, error }) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
-          <div className="panel bg-white/95 border border-slate-200 rounded-3xl p-8 shadow-[0_18px_45px_rgba(15,23,42,0.18)] max-w-sm w-full text-center">
-            <h1 className="text-2xl font-semibold text-slate-900 mb-2 tracking-tight">
+          <div className="panel max-w-sm w-full p-8 text-center">
+            <h1 className="text-2xl font-semibold text-[#111827] mb-2">
               {title}
             </h1>
             {text && !error && (
-              <p className="text-xs text-slate-500">{text}</p>
+              <p className="text-sm text-slate-500">{text}</p>
             )}
             {error && (
-              <p className="text-xs text-red-500">
-                {error}
-              </p>
+              <p className="text-sm text-red-500">{error}</p>
             )}
           </div>
         </div>
@@ -571,40 +684,38 @@
 
     function PinLockScreen({ onUnlock, onClearPin }) {
       const [pin, setPin] = useState("");
-
       function submit() {
         if (!pin.trim()) return;
         onUnlock(pin.trim());
       }
-
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950">
-          <div className="panel bg-slate-950 border border-slate-800 rounded-3xl p-8 shadow-[0_18px_45px_rgba(0,0,0,0.6)] max-w-xs w-full text-center">
-            <h1 className="text-xl font-semibold text-slate-50 mb-2 tracking-tight">
+        <div className="min-h-screen flex items-center justify-center bg-[#020817]">
+          <div className="panel max-w-xs w-full p-8 text-center">
+            <h1 className="text-xl font-semibold text-slate-50 mb-2">
               Enter PIN
             </h1>
-            <p className="text-[10px] text-slate-400 mb-4">
-              This account is locked. Use your 2–4 digit PIN to continue.
+            <p className="text-sm text-slate-400 mb-4">
+              This account is locked. Use your 2–4 digit PIN.
             </p>
             <input
               type="password"
               maxLength={4}
-              className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-3 py-2 text-center text-lg tracking-[0.4em] text-slate-50 mb-3 outline-none focus:ring-2 focus:ring-blue-500/60"
+              className="w-full bg-[#020817] border border-slate-700 rounded-2xl px-3 py-2 text-center text-xl tracking-[0.4em] text-slate-50 mb-3 outline-none"
               value={pin}
               onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
               onKeyDown={e => e.key === "Enter" && submit()}
             />
             <button
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-2xl text-xs font-medium transition mb-2"
+              className="btn-accent w-full mb-2"
               onClick={submit}
             >
               Unlock
             </button>
             <button
-              className="w-full bg-slate-900 border border-slate-600 text-slate-400 py-1.5 rounded-2xl text-[9px] hover:bg-slate-800 transition"
+              className="btn-soft w-full"
               onClick={onClearPin}
             >
-              Forgot PIN? Clear it for this account
+              Forgot PIN? Clear it
             </button>
           </div>
         </div>
@@ -649,49 +760,52 @@
 
       return (
         <div className="fixed inset-0 settings-overlay bg-black/40 flex justify-end z-40">
-          <div className="panel h-full w-80 bg-white/98 border-l border-slate-200 shadow-[0_18px_45px_rgba(15,23,42,0.32)] p-4 flex flex-col">
+          <div className="panel h-full w-80 p-4 border-l border-slate-200 flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-900 tracking-wide">
+              <h2 className="text-base font-semibold text-[#111827]">
                 Settings
               </h2>
               <button
-                className="text-xs text-slate-500 hover:text-slate-900 transition"
+                className="text-sm text-slate-500 hover:text-slate-900"
                 onClick={onClose}
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs flex-1 overflow-y-auto pr-1">
-              {/* ID */}
+            <div className="space-y-4 text-sm flex-1 overflow-y-auto pr-1">
               <div>
-                <h3 className="font-semibold text-slate-800 mb-1">Your ID</h3>
+                <h3 className="font-semibold text-[#111827] mb-1">
+                  Your ID
+                </h3>
                 <p className="text-slate-600">
                   4-digit ID:
                   <span className="font-mono font-semibold ml-1">
                     …{shortId || "----"}
                   </span>
                 </p>
-                <p className="text-[9px] text-slate-500 mt-1">
-                  Share this with your teacher if they need to look up your account.
+                <p className="text-xs text-slate-500 mt-1">
+                  Share this with your teacher if they need to find your account.
                 </p>
               </div>
 
-              {/* Appearance */}
               <div>
-                <h3 className="font-semibold text-slate-800 mb-1">Appearance</h3>
+                <h3 className="font-semibold text-[#111827] mb-1">
+                  Appearance
+                </h3>
                 <button
-                  className="px-3 py-1.5 rounded-full border border-slate-200 text-[10px] bg-white hover:bg-slate-50 shadow-sm transition"
+                  className="btn-soft"
                   onClick={() => setDark(d => !d)}
                 >
-                  {dark ? "☀️  Switch to Light Mode" : "🌙  Switch to Dark Mode"}
+                  {dark ? "☀️  Light Mode" : "🌙  Dark Mode"}
                 </button>
               </div>
 
-              {/* Negative balance lock */}
               <div>
-                <h3 className="font-semibold text-slate-800 mb-1">Balance Rules</h3>
-                <label className="inline-flex items-center gap-2 text-[10px]">
+                <h3 className="font-semibold text-[#111827] mb-1">
+                  Balance Rules
+                </h3>
+                <label className="inline-flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={noNegative}
@@ -699,37 +813,40 @@
                   />
                   <span>Block going below $0 on this device</span>
                 </label>
-                <p className="text-[9px] text-slate-500 mt-1">
-                  If on, withdrawals that drop below $0 are stopped.
+                <p className="text-xs text-slate-500 mt-1">
+                  Prevents withdrawals that drop your balance negative.
                 </p>
               </div>
 
-              {/* PIN */}
               <div>
-                <h3 className="font-semibold text-slate-800 mb-1">PIN Lock (Optional)</h3>
-                <p className="text-[9px] text-slate-500 mb-1">
-                  Add a simple 2–4 digit PIN so only you can open this account on this device.
+                <h3 className="font-semibold text-[#111827] mb-1">
+                  PIN Lock (Optional)
+                </h3>
+                <p className="text-xs text-slate-500 mb-1">
+                  Add a 2–4 digit PIN so only you can open this account on this device.
                 </p>
                 <div className="flex gap-2 items-center mb-1">
                   <input
                     type="password"
                     maxLength={4}
-                    className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-20 text-center"
-                    placeholder={hasPin ? "New PIN" : "1234"}
+                    className="border border-slate-200 rounded-lg px-2 py-1 text-sm w-20 text-center"
+                    placeholder={hasPin ? "New" : "1234"}
                     value={pinInput}
                     onChange={e =>
                       setPinInput(e.target.value.replace(/\D/g, ""))
                     }
                   />
                   <button
-                    className="px-2 py-1 rounded-lg text-[10px] bg-blue-600 text-white hover:bg-blue-500 transition"
+                    className="btn-accent"
+                    style={{ padding: "0.25rem 0.7rem", fontSize: "0.75rem" }}
                     onClick={savePin}
                   >
                     Save
                   </button>
                   {hasPin && (
                     <button
-                      className="px-2 py-1 rounded-lg text-[10px] bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+                      className="btn-soft"
+                      style={{ padding: "0.25rem 0.7rem", fontSize: "0.75rem" }}
                       onClick={clearPin}
                     >
                       Remove
@@ -738,20 +855,21 @@
                 </div>
               </div>
 
-              {/* Teacher / Admin */}
               <div>
-                <h3 className="font-semibold text-slate-800 mb-1">Teacher Access</h3>
-                <p className="text-[9px] text-slate-500 mb-1">
+                <h3 className="font-semibold text-[#111827] mb-1">
+                  Teacher Access
+                </h3>
+                <p className="text-xs text-slate-500 mb-1">
                   Teachers: enter your admin code to open the Admin View on this device.
                 </p>
                 <input
-                  className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-full mb-2"
+                  className="border border-slate-200 rounded-lg px-2 py-1 text-sm w-full mb-2"
                   placeholder="Teacher admin code"
                   value={adminCode}
                   onChange={e => setAdminCode(e.target.value)}
                 />
                 <button
-                  className="w-full bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] hover:bg-black transition"
+                  className="btn-accent w-full"
                   onClick={onEnterAdmin}
                 >
                   Enter Admin View
@@ -759,8 +877,8 @@
               </div>
             </div>
 
-            <p className="text-[8px] text-slate-400 mt-2">
-              No names or emails are stored. Accounts are anonymous and classroom-safe.
+            <p className="text-[10px] text-slate-400 mt-2">
+              No names or emails are stored. Anonymous, classroom-safe banking.
             </p>
           </div>
         </div>
@@ -768,24 +886,26 @@
     }
 
     // ---------- STUDENT COMPONENTS ----------
+
     function ClassCodeEditor({ current, onSave }) {
       const [value, setValue] = useState(current || "");
       return (
         <div className="flex items-center gap-2">
           <input
-            className="border border-slate-200 rounded-lg px-2 py-1 text-[10px] w-24"
+            className="border border-slate-200 rounded-lg px-2 py-1 text-sm w-24"
             value={value}
             placeholder="e.g. 2A"
             onChange={e => setValue(e.target.value)}
             onBlur={() => { if (value.trim()) onSave(value.trim()); }}
           />
           <button
-            className="px-2 py-1 rounded-full bg-blue-600 text-white text-[9px] hover:bg-blue-500 transition"
+            className="btn-accent"
+            style={{ padding: "0.25rem 0.7rem", fontSize: "0.75rem" }}
             onClick={() => { if (value.trim()) onSave(value.trim()); }}
           >
             Save
           </button>
-          <span className="text-[9px] text-slate-500">
+          <span className="text-xs text-slate-500">
             Current: {current || "none"}
           </span>
         </div>
@@ -795,7 +915,7 @@
     function StudentTransactionForm({ onAdd, onUndo, noNegative, balance, notify }) {
       const [amount, setAmount] = useState("");
       const [memo, setMemo] = useState("");
-      const [type, setType] = useState("Reward");
+      const [type, setType] = useState("General");
 
       function handle(sign) {
         const n = parseFloat(amount);
@@ -808,7 +928,8 @@
         }
 
         const label = memo || (value > 0 ? "Deposit" : "Withdraw");
-        onAdd(value, label, type === "Other" ? null : type);
+        const finalType = type === "General" ? null : type;
+        onAdd(value, label, finalType);
         setAmount("");
         setMemo("");
       }
@@ -818,43 +939,44 @@
           <input
             type="number"
             step="0.01"
-            className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] w-24"
+            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm w-24"
             placeholder="$"
             value={amount}
             onChange={e => setAmount(e.target.value)}
           />
           <input
             type="text"
-            className="border border-slate-200 rounded-lg px-2 py-1 text-[11px] flex-1 min-w-[120px]"
+            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm flex-1 min-w-[140px]"
             placeholder="Note (optional)"
             value={memo}
             onChange={e => setMemo(e.target.value)}
           />
           <select
-            className="border border-slate-200 rounded-lg px-2 py-1 text-[10px]"
+            className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
             value={type}
             onChange={e => setType(e.target.value)}
           >
-            <option>Reward</option>
-            <option>Fine</option>
-            <option>Bonus</option>
+            <option>General</option>
+            <option>Deduction</option>
+            <option>Saving</option>
+            <option>Goal</option>
             <option>Store</option>
             <option>Other</option>
           </select>
           <button
-            className="px-3 py-1.5 rounded-full bg-emerald-500 text-white text-[10px] hover:bg-emerald-400 transition"
+            className="btn-accent"
             onClick={() => handle(+1)}
           >
             Deposit
           </button>
           <button
-            className="px-3 py-1.5 rounded-full bg-rose-500 text-white text-[10px] hover:bg-rose-400 transition"
+            className="btn-soft"
             onClick={() => handle(-1)}
           >
             Withdraw
           </button>
           <button
-            className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-[9px] border border-slate-200 hover:bg-slate-200 transition"
+            className="btn-soft"
             onClick={onUndo}
           >
             Undo last
@@ -863,18 +985,37 @@
       );
     }
 
-    function StudentTransactionList({ transactions }) {
-      const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    function filteredByTab(transactions, activeTab) {
+      if (activeTab === "all") return transactions;
+      if (activeTab === "deductions") {
+        return transactions.filter(t => t.type === "Deduction");
+      }
+      if (activeTab === "savings") {
+        return transactions.filter(t => t.type === "Saving");
+      }
+      if (activeTab === "goals") {
+        return transactions.filter(t => t.type === "Goal");
+      }
+      return transactions;
+    }
+
+    function StudentTransactionList({ transactions, activeTab }) {
+      const rows = filteredByTab(
+        [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0)),
+        activeTab
+      );
+
       if (!rows.length) {
         return (
-          <div className="mt-2 text-[10px] text-slate-500">
-            No transactions yet. Add a deposit or withdrawal to get started.
+          <div className="mt-2 text-sm text-slate-500">
+            No transactions in this view yet.
           </div>
         );
       }
+
       return (
-        <div className="mt-2 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white/80">
-          <ul className="divide-y divide-slate-100 text-[10px]">
+        <div className="mt-2 flex-1 overflow-y-auto rounded-2xl border border-slate-200 bg-white">
+          <ul className="divide-y divide-slate-100 text-sm">
             {rows.map((t, i) => (
               <li key={i} className="px-3 py-2 flex items-center justify-between gap-2">
                 <div className="flex flex-col">
@@ -882,7 +1023,7 @@
                     {new Date(t.ts || Date.now()).toLocaleString()} — {t.memo || "—"}
                   </span>
                   {t.type && (
-                    <span className="mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[8px] border border-blue-100 tag">
+                    <span className="tag mt-1">
                       {t.type}
                     </span>
                   )}
@@ -890,8 +1031,8 @@
                 <span
                   className={
                     t.amount >= 0
-                      ? "text-emerald-600 font-semibold"
-                      : "text-rose-600 font-semibold"
+                      ? "text-[var(--accent-soft)] font-semibold"
+                      : "text-slate-500 font-semibold"
                   }
                 >
                   {t.amount >= 0 ? "+" : ""}
@@ -904,25 +1045,28 @@
       );
     }
 
-    function StudentTransactionInfo({ transactions }) {
-      const rows = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    function StudentTransactionInfo({ transactions, activeTab }) {
+      const all = [...(transactions || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      const rows = filteredByTab(all, activeTab);
+
       if (!rows.length) {
         return (
-          <div className="text-[10px] text-slate-500">
-            Your statement will appear after your first transaction.
+          <div className="text-sm text-slate-500">
+            No activity yet for this category.
           </div>
         );
       }
+
       const totalIn = rows.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
       const totalOut = rows.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
       return (
-        <div className="text-[9px] flex flex-col gap-2 h-full">
-          <div className="flex gap-4 mb-1">
-            <div className="px-2 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 pill">
+        <div className="flex flex-col gap-2 h-full text-sm">
+          <div className="flex gap-3 mb-1">
+            <div className="pill">
               In: {fmtUSD(totalIn)}
             </div>
-            <div className="px-2 py-1 rounded-xl bg-rose-50 text-rose-700 border border-rose-100 pill">
+            <div className="pill">
               Out: {fmtUSD(totalOut)}
             </div>
           </div>
@@ -933,8 +1077,8 @@
                   <span
                     className={
                       t.amount >= 0
-                        ? "text-emerald-600 font-semibold"
-                        : "text-rose-600 font-semibold"
+                        ? "text-[var(--accent-soft)] font-semibold"
+                        : "text-slate-400 font-semibold"
                     }
                   >
                     {t.amount >= 0 ? "+" : ""}
@@ -946,11 +1090,11 @@
                   </span>
                 </div>
                 {t.type && (
-                  <div className="text-blue-700 text-[8px]">
+                  <div className="text-[var(--accent-dark)] text-xs">
                     {t.type}
                   </div>
                 )}
-                <div className="text-slate-600">
+                <div className="text-slate-600 text-xs">
                   {t.memo || "No note"}
                 </div>
               </div>
@@ -961,6 +1105,7 @@
     }
 
     // ---------- ADMIN COMPONENTS ----------
+
     function AdminClassList({
       roster,
       selectedUserId,
@@ -969,7 +1114,9 @@
       onDeleteUser
     }) {
       if (!roster.length) {
-        return <p className="text-[10px] text-slate-500">No student accounts yet.</p>;
+        return (
+          <p className="text-sm text-slate-500">No student accounts yet.</p>
+        );
       }
 
       const groups = {};
@@ -988,15 +1135,12 @@
       return (
         <div className="space-y-3">
           {classCodes.map(code => (
-            <div
-              key={code}
-              className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-2"
-            >
+            <div key={code} className="rounded-2xl border border-slate-200 bg-white px-3 py-2">
               <div className="flex items-center justify-between mb-1.5">
-                <h3 className="text-[10px] font-semibold text-slate-800 uppercase tracking-[0.16em]">
+                <h3 className="text-xs font-semibold text-[#111827] uppercase tracking-[0.16em]">
                   {code === "Unassigned" ? "No Class" : `Class ${code}`}
                 </h3>
-                <span className="text-[8px] text-slate-500">
+                <span className="text-[10px] text-slate-500">
                   {groups[code].length} student(s)
                 </span>
               </div>
@@ -1012,21 +1156,24 @@
                         key={p.uid}
                         className={
                           "flex items-center justify-between gap-2 px-2 py-1.5 rounded-2xl cursor-pointer transition " +
-                          (isSelected ? "bg-blue-50 border border-blue-100" : "bg-slate-50")
+                          (isSelected
+                            ? "bg-[var(--accent-subtle)] border border-[var(--accent)]"
+                            : "bg-slate-50")
                         }
                         onClick={() => onSelectUser(p.uid)}
                       >
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-medium text-slate-800">
+                          <span className="text-xs font-medium text-[#111827]">
                             Student {i + 1} · ID …{shortId}
                           </span>
-                          <span className="text-[8px] text-slate-500">
+                          <span className="text-[10px] text-slate-500">
                             Balance: {bal}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
                           <button
-                            className="px-2 py-0.5 text-[8px] rounded-full bg-emerald-500 text-white hover:bg-emerald-400"
+                            className="btn-accent"
+                            style={{ padding: "0.15rem 0.5rem", fontSize: "0.65rem" }}
                             onClick={e => {
                               e.stopPropagation();
                               onAdjust(p.uid, +5, "Admin +5", "Admin");
@@ -1035,7 +1182,8 @@
                             +$5
                           </button>
                           <button
-                            className="px-2 py-0.5 text-[8px] rounded-full bg-rose-500 text-white hover:bg-rose-400"
+                            className="btn-soft"
+                            style={{ padding: "0.15rem 0.5rem", fontSize: "0.65rem" }}
                             onClick={e => {
                               e.stopPropagation();
                               onAdjust(p.uid, -5, "Admin -5", "Admin");
@@ -1044,7 +1192,8 @@
                             -$5
                           </button>
                           <button
-                            className="px-2 py-0.5 text-[8px] rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300"
+                            className="btn-soft"
+                            style={{ padding: "0.15rem 0.45rem", fontSize: "0.65rem" }}
                             onClick={e => {
                               e.stopPropagation();
                               onDeleteUser(p.uid);
@@ -1066,7 +1215,7 @@
     function AdminTransactionPanel({ user }) {
       if (!user) {
         return (
-          <p className="text-[10px] text-slate-500">
+          <p className="text-sm text-slate-500">
             Select a student from the left to see their activity.
           </p>
         );
@@ -1080,19 +1229,19 @@
       const totalOut = rows.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
       return (
-        <div className="flex flex-col h-full text-[9px]">
+        <div className="flex flex-col h-full text-sm">
           <div className="mb-2 text-slate-700 space-y-0.5">
             <div>Student ID: …{shortId}</div>
             <div>Class: {user.classCode || "Unassigned"}</div>
             <div>Balance: <strong>{fmtUSD(computeBalance(user))}</strong></div>
-            <div className="mt-1 flex gap-3">
-              <span className="text-emerald-600">In: {fmtUSD(totalIn)}</span>
-              <span className="text-rose-600">Out: {fmtUSD(totalOut)}</span>
+            <div className="mt-1 flex gap-3 text-xs">
+              <span className="pill">In: {fmtUSD(totalIn)}</span>
+              <span className="pill">Out: {fmtUSD(totalOut)}</span>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto space-y-1 mt-1">
             {rows.length === 0 ? (
-              <p className="text-[9px] text-slate-500">No transactions yet.</p>
+              <p className="text-sm text-slate-500">No transactions yet.</p>
             ) : (
               rows.map((t, i) => (
                 <div key={i} className="border-b border-slate-100 pb-1">
@@ -1100,24 +1249,24 @@
                     <span
                       className={
                         t.amount >= 0
-                          ? "text-emerald-600 font-semibold"
-                          : "text-rose-600 font-semibold"
+                          ? "text-[var(--accent-soft)] font-semibold"
+                          : "text-slate-500 font-semibold"
                       }
                     >
                       {t.amount >= 0 ? "+" : ""}
                       {Number(t.amount).toFixed(2)}
                     </span>
-                    <span className="text-slate-500">
+                    <span className="text-slate-500 text-xs">
                       {new Date(t.ts || Date.now()).toLocaleDateString()}{" "}
                       {new Date(t.ts || Date.now()).toLocaleTimeString()}
                     </span>
                   </div>
                   {t.type && (
-                    <div className="text-blue-700 text-[8px]">
+                    <div className="text-[var(--accent-dark)] text-xs">
                       {t.type}
                     </div>
                   )}
-                  <div className="text-slate-600">
+                  <div className="text-slate-600 text-xs">
                     {t.memo || "No note"}
                   </div>
                 </div>
